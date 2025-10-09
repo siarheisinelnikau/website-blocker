@@ -1,0 +1,6 @@
+{
+  "name": "website-blocker-tests",
+  "private": true,
+  "type": "module",
+  "scripts": { "test": "node --test extension/tests/*.test.js" }
+}

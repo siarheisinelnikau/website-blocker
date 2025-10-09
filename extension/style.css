@@ -1,0 +1,16 @@
+:root { color-scheme: light; font-family: system-ui, sans-serif; color: #153c36; background: #f1f3eb; }
+* { box-sizing: border-box; }
+body { margin: 0; }
+main { padding: 28px; }
+.popup { width: 370px; }
+.blocked main { max-width: 660px; margin: 8vh auto; }
+.eyebrow { font-size: 11px; letter-spacing: .16em; font-weight: 700; }
+h1 { font-size: 30px; line-height: 1.14; font-weight: 650; letter-spacing: -.04em; }
+.blocked h1 { font-size: 54px; }
+p, details { font-size: 14px; line-height: 1.65; }
+.muted { color: #5b6f66; font-size: 12px; }
+#error { color: #8a3627; overflow-wrap: anywhere; }
+button { background: #215c52; color: white; border: none; padding: 12px 18px; border-radius: 8px; cursor: pointer; font: inherit; }
+button:hover { background: #153c36; } button:disabled { opacity: .5; }
+button:focus-visible, summary:focus-visible { outline: 3px solid #b5a340; outline-offset: 3px; }
+.symbol { font-size: 80px; margin-top: 30px; color: #a29b46; }

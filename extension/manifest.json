@@ -1,0 +1,12 @@
+{
+  "manifest_version": 3,
+  "name": "WebsiteBlocker Companion",
+  "version": "0.1.0",
+  "minimum_chrome_version": "120",
+  "description": "Apply your local WebsiteBlocker focus rules and schedules to website navigations.",
+  "permissions": ["declarativeNetRequest", "storage", "alarms", "nativeMessaging"],
+  "host_permissions": ["http://*/*", "https://*/*"],
+  "background": { "service_worker": "background.js", "type": "module" },
+  "action": { "default_popup": "popup.html", "default_title": "WebsiteBlocker" },
+  "web_accessible_resources": [{ "resources": ["blocked.html", "blocked.js", "style.css"], "matches": ["http://*/*", "https://*/*"] }]
+}
