@@ -1,0 +1,29 @@
+name: Check
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Fetch locked dependencies
+        run: cargo fetch --locked
+      - name: Noninteractive checks
+        shell: pwsh
+        run: ./scripts/Check.ps1
+      - name: Package without publishing
+        shell: pwsh
+        run: ./scripts/Package.ps1 -Offline
+      - uses: actions/upload-artifact@v4
+        with:
+          name: WebsiteBlocker-Windows
+          path: dist/*

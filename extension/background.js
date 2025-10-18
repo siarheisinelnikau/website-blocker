@@ -2,7 +2,7 @@ import { validatePolicy, activeGroups, compileRules, nextBoundary } from "./engi
 
 const api = globalThis.chrome;
 const HOST = "com.websiteblocker.companion";
-let running = false;
+let inflight = null;
 let refreshPending = false;
 
 async function update(refresh) {
@@ -17,7 +17,9 @@ async function update(refresh) {
       if (response?.protocol !== 1 || response.error) throw new Error(response?.error || "Invalid companion response.");
       const candidate = validatePolicy(response.policy);
       // Check RE2 support before replacing the last known usable policy.
-      for (const regex of new Set([...candidate.allow_regexes, ...candidate.groups.flatMap(g => g.regexes)])) {
+      const regexes = [...candidate.allow_regexes, ...candidate.groups.flatMap(g => g.regexes)];
+      const previousRegexes = policy ? [...policy.allow_regexes, ...policy.groups.flatMap(g => g.regexes)] : [];
+      for (const regex of new Set(JSON.stringify(regexes) === JSON.stringify(previousRegexes) ? [] : regexes)) {
         const supported = await api.declarativeNetRequest.isRegexSupported({ regex, isCaseSensitive: true });
         if (!supported.isSupported) throw new Error(`Browser rejected a website matcher: ${supported.reason}`);
       }
@@ -44,22 +46,24 @@ async function update(refresh) {
   await api.alarms.create("boundary", { when: nextBoundary(policy, now) * 1000 });
 }
 
-export async function sync(refresh = true) {
+export function sync(refresh = true) {
   refreshPending ||= refresh;
-  if (running) return;
-  running = true;
-  try {
-    do {
-      const requested = refreshPending;
-      refreshPending = false;
-      try { await update(requested); }
-      catch (e) {
-        await api.storage.local.set({ status: { active: [], error: `Rules could not be applied: ${e.message}`, appliedAt: 0 } });
-        await api.action.setBadgeText({ text: "!" });
-        await api.alarms.create("boundary", { delayInMinutes: 0.5 });
-      }
-    } while (refreshPending);
-  } finally { running = false; }
+  if (inflight) return inflight;
+  inflight = (async () => {
+    try {
+      do {
+        const requested = refreshPending;
+        refreshPending = false;
+        try { await update(requested); }
+        catch (e) {
+          await api.storage.local.set({ status: { active: [], error: `Rules could not be applied: ${e.message}`, appliedAt: 0 } });
+          await api.action.setBadgeText({ text: "!" });
+          await api.alarms.create("boundary", { delayInMinutes: 0.5 });
+        }
+      } while (refreshPending);
+    } finally { inflight = null; }
+  })();
+  return inflight;
 }
 
 async function initialize() {
