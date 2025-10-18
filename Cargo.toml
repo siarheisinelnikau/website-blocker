@@ -18,7 +18,9 @@ sha2 = "0.10.9"
 tempfile = "3.27"
 ureq = { version = "3.5", features = ["json"] }
 url = "2.5"
+winit = { version = "0.30.13", default-features = false, features = ["rwh_06"] }
 
 [target.'cfg(windows)'.dependencies]
 windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_System_Threading"] }
+
 
