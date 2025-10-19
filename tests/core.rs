@@ -57,6 +57,29 @@ fn domains_paths_and_allowlists_are_not_substring_matches() {
 }
 
 #[test]
+fn generated_browser_matchers_share_the_normalized_url_contract() {
+    #[derive(serde::Deserialize)]
+    struct Fixture {
+        pattern: String,
+        regex: String,
+        allow: Vec<String>,
+        deny: Vec<String>,
+    }
+    let fixtures: Vec<Fixture> =
+        serde_json::from_str(include_str!("../extension/tests/fixtures/matchers.json")).unwrap();
+    for fixture in fixtures {
+        let pattern = Pattern::parse(&fixture.pattern).unwrap();
+        assert_eq!(pattern.regex(), fixture.regex);
+        for url in fixture.allow {
+            assert!(pattern.matches(&url.parse().unwrap()), "{url}");
+        }
+        for url in fixture.deny {
+            assert!(!pattern.matches(&url.parse().unwrap()), "{url}");
+        }
+    }
+}
+
+#[test]
 fn overnight_week_boundary_and_exclusive_end() {
     let s = schedule(&[6], 23 * 60, 60, "Europe/Minsk");
     assert!(s.active_wall(6, 23 * 60));
@@ -74,6 +97,22 @@ fn policy_preserves_precise_session_expiry_and_breaks() {
     let policy = state.policy(now);
     assert_eq!(policy.focus.unwrap().end, now.timestamp() + 60);
     assert_eq!(policy.pause_until, now.timestamp() + 20);
+}
+
+#[test]
+fn browser_regex_capacity_is_checked_across_all_lists() {
+    let mut state = State::default();
+    let template = state.groups[0].clone();
+    state.groups = (1..=20)
+        .map(|id| Group {
+            id,
+            patterns: vec![template.patterns[0].clone(); 50],
+            ..template.clone()
+        })
+        .collect();
+    assert!(state.validate().is_ok());
+    state.allowlist = vec![Pattern::parse("help.example.com").unwrap()];
+    assert!(state.validate().is_err());
 }
 
 #[test]

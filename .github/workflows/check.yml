@@ -23,6 +23,8 @@ jobs:
       - name: Package without publishing
         shell: pwsh
         run: ./scripts/Package.ps1 -Offline
+      - name: Inspect packaged files without executing them
+        run: python scripts/Inspect-Package.py
       - uses: actions/upload-artifact@v4
         with:
           name: WebsiteBlocker-Windows

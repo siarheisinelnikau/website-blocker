@@ -23,6 +23,7 @@ enum UpdateJob {
 enum Event {
     State(Result<State, String>),
     Connection(Connection),
+    InstallResult(String),
     Update(Result<Option<Update>, String>),
     Progress(u64, Option<u64>),
     Install(Result<(), String>),
@@ -103,6 +104,7 @@ pub struct App {
     tab: Tab,
     message: String,
     update_message: String,
+    install_result: String,
     available: Option<Update>,
     progress: Option<(u64, Option<u64>)>,
     selected: u32,
@@ -133,7 +135,16 @@ impl App {
         std::thread::spawn(move || {
             while let Ok(job) = state_rx.recv() {
                 let event = match job {
-                    StateJob::Load => Event::State(state_store.load()),
+                    StateJob::Load => {
+                        if let Ok(bytes) = website_blocker::store::read_limited(
+                            &state_store.dir.join("updates/install-result.txt"),
+                            8192,
+                        ) {
+                            let _ = state_events
+                                .send(Event::InstallResult(String::from_utf8_lossy(&bytes).into()));
+                        }
+                        Event::State(state_store.load())
+                    }
                     StateJob::Apply(change) => {
                         Event::State(state_store.apply(change, Utc::now().timestamp()))
                     }
@@ -179,6 +190,7 @@ impl App {
             tab: Tab::Focus,
             message: "Loading local settings…".into(),
             update_message: String::new(),
+            install_result: String::new(),
             available: None,
             progress: None,
             selected: 1,
@@ -265,6 +277,7 @@ impl App {
                     }
                 }
                 Event::Connection(connection) => self.connection = connection,
+                Event::InstallResult(result) => self.install_result = result,
                 Event::Update(result) => {
                     self.update_busy = false;
                     match result {
@@ -512,6 +525,9 @@ impl App {
             self.update_job(UpdateJob::Check);
         }
         ui.label(&self.update_message);
+        if !self.install_result.is_empty() {
+            ui.label(format!("Last installation result: {}", self.install_result));
+        }
         if let Some(update) = self.available.clone() {
             ui.label(format!("Version {} is available. Installation will close and restart this app; local settings are preserved.", update.version));
             if ui

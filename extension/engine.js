@@ -46,6 +46,7 @@ export function validatePolicy(policy) {
   }
   if (policy.focus !== null && policy.focus !== undefined &&
       (!ids.has(policy.focus.group_id) || !Number.isSafeInteger(policy.focus.end))) throw new Error("Invalid focus timer.");
+  if (regexes.length > 1000) throw new Error("Too many browser regex rules.");
   for (const regex of regexes) {
     if (typeof regex !== "string" || regex.length > 2048 || !regex.startsWith("^https?://")) throw new Error("Invalid website matcher.");
     new RegExp(regex);

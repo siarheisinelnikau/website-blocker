@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { activeGroups, compileRules, nextBoundary, scheduled, validatePolicy, wallTime } from "../engine.js";
 
 const at = text => Date.parse(text) / 1000;
@@ -64,4 +65,13 @@ test("invalid timezone and excessive or malformed policy are rejected", () => {
   p.groups[0].schedules[0].timezone = "UTC";
   assert.doesNotThrow(() => validatePolicy(p));
   p.groups.push(p.groups[0]); assert.throws(() => validatePolicy(p));
+});
+
+test("Rust-generated matchers and browser matching share normalization fixtures", () => {
+  const fixtures = JSON.parse(readFileSync(new URL("./fixtures/matchers.json", import.meta.url)));
+  for (const fixture of fixtures) {
+    const matcher = new RegExp(fixture.regex);
+    for (const url of fixture.allow) assert.ok(matcher.test(new URL(url).href), url);
+    for (const url of fixture.deny) assert.equal(matcher.test(new URL(url).href), false, url);
+  }
 });

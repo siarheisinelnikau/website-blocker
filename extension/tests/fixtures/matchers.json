@@ -1,0 +1,20 @@
+[
+  {
+    "pattern": "example.com/work",
+    "regex": "^https?://([a-z0-9_-]+\\.)*example\\.com\\.?(:[0-9]+)?/work",
+    "allow": ["https://example.com/work", "https://a.example.com:8080/work/item", "https://foo_bar.example.com/work", "https://example.com./work"],
+    "deny": ["https://notexample.com/work", "https://example.com.evil.org/work", "https://example.com/Work", "https://example.com/other", "ftp://example.com/work"]
+  },
+  {
+    "pattern": "=example.org",
+    "regex": "^https?://example\\.org\\.?(:[0-9]+)?/",
+    "allow": ["https://example.org/", "http://example.org:8080/any", "https://example.org./"],
+    "deny": ["https://sub.example.org/", "https://example.org.evil.com/"]
+  },
+  {
+    "pattern": "xn--e1afmkfd.xn--p1ai",
+    "regex": "^https?://([a-z0-9_-]+\\.)*xn--e1afmkfd\\.xn--p1ai\\.?(:[0-9]+)?/",
+    "allow": ["https://xn--e1afmkfd.xn--p1ai/"],
+    "deny": ["https://xn--e1afmkfd.xn--p1ai.evil.com/"]
+  }
+]
