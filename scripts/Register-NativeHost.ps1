@@ -16,7 +16,7 @@ $manifestPath = Join-Path $directory "$Browser.json"
 $manifest = @{ name = $hostName; description = 'WebsiteBlocker local rule companion'; path = $resolvedExe; type = 'stdio'; allowed_origins = @("chrome-extension://$ExtensionId/") }
 if ($PSCmdlet.ShouldProcess("$key -> $manifestPath", 'Register per-user WebsiteBlocker native host')) {
     New-Item -ItemType Directory -Path $directory -Force | Out-Null
-    $manifest | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath $manifestPath -Encoding UTF8
+    [IO.File]::WriteAllText($manifestPath, ($manifest | ConvertTo-Json -Depth 4), [Text.UTF8Encoding]::new($false))
     New-Item -Path $key -Force | Out-Null
     Set-Item -LiteralPath $key -Value $manifestPath
     Write-Output "Registered $Browser for extension $ExtensionId. Click Sync with desktop in the extension popup."

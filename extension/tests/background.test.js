@@ -9,7 +9,7 @@ test("service worker applies real DNR payloads, keeps a usable cache, and clears
     allow_regexes: [], groups: [{ id: 1, name: "Focus", regexes: ["^https?://example\\.com/"], schedules: [] }],
     focus: { group_id: 1, end: now + 120 }, pause_until: 0 };
   const storage = {}, alarms = [], writes = [];
-  let dynamic = [], disconnected = false;
+  let dynamic = [], disconnected = false, rejectRules = false;
   const event = () => ({ addListener() {} });
   globalThis.chrome = {
     storage: { local: { async get(keys) { return typeof keys === "string" ? { [keys]: storage[keys] } : Object.fromEntries(keys.map(k => [k, storage[k]])); },
@@ -20,7 +20,10 @@ test("service worker applies real DNR payloads, keeps a usable cache, and clears
       return { protocol: 1, policy: structuredClone(policy) };
     } },
     declarativeNetRequest: { async isRegexSupported() { return { isSupported: true }; }, async getDynamicRules() { return dynamic; },
-      async updateDynamicRules(value) { writes.push(value); dynamic = value.addRules; } },
+      async updateDynamicRules(value) {
+        if (rejectRules) throw new Error("Fixture API rejection");
+        writes.push(value); dynamic = value.addRules;
+      } },
     action: { async setBadgeText() {}, async setBadgeBackgroundColor() {} },
     alarms: { onAlarm: event(), async create(name, options) { alarms.push({ name, options }); } }
   };
@@ -28,6 +31,13 @@ test("service worker applies real DNR payloads, keeps a usable cache, and clears
     const { sync } = await import("../background.js");
     await sync();
     assert.equal(dynamic.length, 1); assert.deepEqual(storage.status.active, ["Focus"]);
+    policy.revision = 2;
+    policy.groups[0].regexes = ["^https?://changed\\.example\\.com/"];
+    rejectRules = true;
+    await sync();
+    assert.equal(storage.policy.revision, 1); // failed application must not poison the usable cache
+    assert.match(storage.status.error, /previous browser rules may remain/);
+    rejectRules = false;
     disconnected = true; now += 30; await sync();
     assert.equal(dynamic.length, 1); assert.match(storage.status.error, /Host not found/);
     now = policy.focus.end; await sync(false);

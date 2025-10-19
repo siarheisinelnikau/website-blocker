@@ -72,7 +72,7 @@ impl Pattern {
         if !matches!(url.scheme(), "http" | "https") {
             return false;
         }
-        let host = url.host_str().unwrap_or_default();
+        let host = url.host_str().unwrap_or_default().trim_end_matches('.');
         (host == self.domain || (self.subdomains && host.ends_with(&format!(".{}", self.domain))))
             && url.path().starts_with(&self.path_prefix)
     }
@@ -91,9 +91,9 @@ impl Pattern {
                 .collect()
         }
         format!(
-            "^https?://{}{}(:[0-9]+)?{}",
+            "^https?://{}{}\\.?(:[0-9]+)?{}",
             if self.subdomains {
-                "([a-z0-9-]+\\.)*"
+                "([a-z0-9_-]+\\.)*"
             } else {
                 ""
             },
@@ -213,6 +213,10 @@ impl State {
         }
         if self.groups.len() > MAX_GROUPS || self.allowlist.len() > MAX_PATTERNS {
             return Err("Too many rules.".into());
+        }
+        if self.groups.iter().map(|g| g.patterns.len()).sum::<usize>() + self.allowlist.len() > 1000
+        {
+            return Err("At most 1,000 total website and allowlist patterns are supported by the browser regex engine.".into());
         }
         let mut ids = std::collections::HashSet::new();
         for group in &self.groups {

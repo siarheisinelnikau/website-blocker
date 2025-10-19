@@ -6,7 +6,7 @@ A local, voluntary focus tool for websites. Manage website lists, recurring sche
 
 ## What it does
 
-- Up to 20 named website lists with 50 domain or path-prefix patterns each. Plain domains include subdomains; `=example.com` matches only that host. International domain names normalize to ASCII.
+- Up to 20 named website lists with 50 domain or path-prefix patterns each (1,000 patterns total, including allowed websites). Plain domains include subdomains; `=example.com` matches only that host. International domain names normalize to ASCII.
 - A global allowlist, taking priority over all active block lists.
 - Focus timers from 1 to 240 minutes. Flexible sessions permit deliberate early stopping; locked sessions protect rule edits, breaks and early stopping until the timer ends.
 - Recurring weekday schedules in named IANA timezones, with overnight ranges and daylight-saving transitions handled by the browser's `Intl` database.

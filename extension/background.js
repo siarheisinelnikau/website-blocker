@@ -8,7 +8,7 @@ let refreshPending = false;
 async function update(refresh) {
   const cached = await api.storage.local.get(["policy", "status"]);
   let policy = cached.policy;
-  let error = cached.status?.error ?? "";
+  let error = cached.status?.nativeError ?? "";
   let contactedAt = cached.status?.contactedAt ?? 0;
   const now = Math.floor(Date.now() / 1000);
   if (refresh) {
@@ -26,20 +26,25 @@ async function update(refresh) {
       policy = candidate;
       contactedAt = now;
       error = "";
-      await api.storage.local.set({ policy });
     } catch (e) { error = `Desktop connection unavailable: ${e.message}`; }
   }
+  const nativeError = error;
   if (policy) validatePolicy(policy);
-  if (!policy || now >= policy.expires_at || now < policy.generated_at - 60) {
-    error = error || "No current policy. Open WebsiteBlocker, check native messaging setup, and sync again.";
+  if (!policy) {
+    error = error || "No policy. Open WebsiteBlocker, check native messaging setup, and sync again.";
+  } else if (now >= policy.expires_at) {
+    error = `Cached policy expired; blocking cleared. ${error}`;
+  } else if (now < policy.generated_at - 60) {
+    error = `Clock moved before this policy; blocking cleared until a fresh sync. ${error}`;
   }
   const rules = compileRules(policy, now);
   const existing = await api.declarativeNetRequest.getDynamicRules();
   if (JSON.stringify(existing) !== JSON.stringify(rules)) {
     await api.declarativeNetRequest.updateDynamicRules({ removeRuleIds: existing.map(r => r.id), addRules: rules });
   }
+  if (policy) await api.storage.local.set({ policy });
   const active = activeGroups(policy, now).map(g => g.name);
-  await api.storage.local.set({ status: { active, error, contactedAt, appliedAt: now,
+  await api.storage.local.set({ status: { active, error, nativeError, contactedAt, appliedAt: now,
     revision: policy?.revision ?? null, expiresAt: policy?.expires_at ?? 0 } });
   await api.action.setBadgeText({ text: active.length ? String(active.length) : "" });
   await api.action.setBadgeBackgroundColor({ color: "#215c52" });
@@ -56,7 +61,7 @@ export function sync(refresh = true) {
         refreshPending = false;
         try { await update(requested); }
         catch (e) {
-          await api.storage.local.set({ status: { active: [], error: `Rules could not be applied: ${e.message}`, appliedAt: 0 } });
+          await api.storage.local.set({ status: { active: [], error: `Rules could not be applied; previous browser rules may remain: ${e.message}`, appliedAt: 0 } });
           await api.action.setBadgeText({ text: "!" });
           await api.alarms.create("boundary", { delayInMinutes: 0.5 });
         }
