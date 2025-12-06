@@ -2,11 +2,24 @@
 
 Implementation date: 2026-10-31 (Europe/Minsk). Work was explicitly restricted to code, compilation and safe noninteractive fixtures. No GUI application was launched, browser/registry/user settings were changed, extension installed, focus session started on the real machine, remote Git operation performed or release published.
 
-## Automated checks
+## Completed commands and results
+
+All commands ran with the explicit working directory `E:\work\github\website-blocker` and used at most two Cargo jobs and the local target directory.
+
+| Check | Result |
+| --- | --- |
+| `scripts/Check.ps1` | Passed: rustfmt, Clippy for all targets with `-D warnings`, 11 Rust tests, 7 Node tests, and parsing all four PowerShell scripts |
+| `scripts/Package.ps1 -Offline` | Passed: optimized Windows x64 MSVC build with static CRT, version-matched companion ZIP, and SHA-256 sidecar |
+| `python scripts/Inspect-Package.py` | Passed: x64 PE GUI subsystem, no VCRUNTIME/MSVCP DLL imports, required ZIP entries, ZIP integrity and both asset hashes |
+| `git diff --check` | Passed |
+
+Packaged EXE size: 7,501,312 bytes. Artifacts are local under `dist/` and are deliberately ignored by Git. The executable was inspected as bytes only, never loaded or launched. Tests produced artificial files only under `.test-output/`. Cargo reported an incremental-cache hard-link fallback to file copying; it did not prevent compilation or tests. CI remains unexecuted remotely.
+
+## Automated coverage
 
 - Rust tests: domain/path boundaries and international domains; wall-minute overnight/week boundaries; precise focus/break policy transfer; persistent locks/break cooldown; stale revision and corrupt-file preservation; native framing/size limits and rejection of mutation commands; semantic release/asset/checksum selection; staged file replacement on isolated data; time-input bounds.
 - Node tests (no browser or network): named-zone midnight/week conversion; fall-back and spring-forward fixtures; focus/break/cache expiry and rollback boundaries; DNR allow/redirect payloads and host/path boundaries; invalid policy rejection; service-worker behavior using a fake Chrome API, including native disconnection and rule removal at timer expiry.
-- Formatting/Clippy, release compilation, packaging and PowerShell parse results are finalized in the local completion report. CI is prepared but has not run remotely.
+- Browser matcher fixtures are shared between Rust-generated regex assertions and Node URL normalization/matching, including trailing-dot hosts, underscore subdomains and punycode. Failed browser API application preserves the previous usable cached policy.
 
 Initial download of the optional `chrono-tz` dependency was unavailable (`curl failed: getaddrinfo() thread failed to start`). That dependency was removed; the implementation uses the browser/Node `Intl` timezone database and resolves its Rust dependencies offline. There is no remaining timezone download requirement. Initial replacement tests in the OS temporary directory encountered sandbox access denial; all filesystem fixture tests now use repository-local `.test-output/` and pass there. No elevation was requested.
 

@@ -43,6 +43,7 @@ Set-Location E:\work\github\website-blocker
 cargo fetch --locked                       # only when dependencies are not already cached
 .\scripts\Check.ps1                        # offline formatting, Clippy and isolated tests
 .\scripts\Package.ps1 -Offline              # Windows x64 EXE, companion ZIP, checksums
+python scripts/Inspect-Package.py           # inspect PE/ZIP/hashes without execution
 ```
 
 Cargo uses a repository-local `target` directory, at most two build jobs and the static MSVC CRT for Windows x64. The workflow prepares build artifacts without publishing releases. First dependency fetch requires network access; the implementation environment used existing cached crates.
