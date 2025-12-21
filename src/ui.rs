@@ -1,5 +1,13 @@
 use chrono::Utc;
-use eframe::egui::{self, Color32, RichText};
+const ACCENT: Color32 = Color32::from_rgb(25, 100, 73);
+fn primary(ui: &mut egui::Ui, label: impl Into<String>) -> egui::Response {
+    ui.add(
+        egui::Button::new(RichText::new(label.into()).color(Color32::WHITE))
+            .fill(ACCENT)
+            .min_size(egui::vec2(180.0, 40.0)),
+    )
+}
+use egui::{self, Color32, RichText};
 use std::{
     path::PathBuf,
     sync::mpsc::{self, Receiver, SyncSender},
@@ -21,7 +29,7 @@ enum UpdateJob {
     Install(Update),
 }
 enum Event {
-    State(Result<State, String>),
+    State(Result<State, String>, bool),
     Connection(Connection),
     InstallResult(String),
     Update(Result<Option<Update>, String>),
@@ -114,25 +122,55 @@ pub struct App {
     allowlist: String,
     schedules: Vec<ScheduleDraft>,
     minutes: u32,
+    custom_duration: bool,
     locked: bool,
     phrase: String,
     connection: Connection,
     next_connection: Instant,
+    pub close_requested: bool,
+    pub diagnostic: bool,
 }
 
 impl App {
-    pub fn new(cc: &eframe::CreationContext<'_>, store: Store) -> Self {
+    pub fn with_context(ui_context: &egui::Context, store: Store) -> Self {
         let mut visuals = egui::Visuals::light();
-        visuals.panel_fill = Color32::from_rgb(242, 244, 237);
-        visuals.selection.bg_fill = Color32::from_rgb(177, 213, 197);
-        cc.egui_ctx.set_visuals(visuals);
+        visuals.panel_fill = Color32::from_rgb(244, 247, 244);
+        visuals.override_text_color = Some(Color32::from_rgb(28, 54, 45));
+        visuals.faint_bg_color = Color32::from_rgb(235, 241, 236);
+        visuals.extreme_bg_color = Color32::WHITE;
+        visuals.selection.bg_fill = Color32::from_rgb(201, 229, 214);
+        visuals.widgets.inactive.bg_fill = Color32::from_rgb(230, 237, 232);
+        visuals.widgets.inactive.weak_bg_fill = Color32::from_rgb(230, 237, 232);
+        visuals.widgets.inactive.fg_stroke.color = Color32::from_rgb(28, 54, 45);
+        visuals.widgets.hovered.bg_fill = Color32::from_rgb(211, 229, 217);
+        visuals.widgets.active.bg_fill = Color32::from_rgb(189, 216, 200);
+        ui_context.set_visuals(visuals);
+        ui_context.style_mut(|style| {
+            style
+                .text_styles
+                .insert(egui::TextStyle::Body, egui::FontId::proportional(15.0));
+            style
+                .text_styles
+                .insert(egui::TextStyle::Button, egui::FontId::proportional(15.0));
+            style
+                .text_styles
+                .insert(egui::TextStyle::Small, egui::FontId::proportional(13.0));
+            style
+                .text_styles
+                .insert(egui::TextStyle::Heading, egui::FontId::proportional(25.0));
+            style.spacing.item_spacing = egui::vec2(12.0, 10.0);
+            style.spacing.button_padding = egui::vec2(14.0, 8.0);
+            style.spacing.interact_size.y = 34.0;
+            style.animation_time = 0.0;
+        });
         let (event_tx, events) = mpsc::sync_channel(32);
         let (jobs, state_rx) = mpsc::sync_channel(8);
         let (updates, update_rx) = mpsc::sync_channel(2);
-        let ctx = cc.egui_ctx.clone();
+        let ctx = ui_context.clone();
         let state_store = store.clone();
         let state_events = event_tx.clone();
         std::thread::spawn(move || {
+            let mut last_connection = (0, 0);
             while let Ok(job) = state_rx.recv() {
                 let event = match job {
                     StateJob::Load => {
@@ -143,12 +181,24 @@ impl App {
                             let _ = state_events
                                 .send(Event::InstallResult(String::from_utf8_lossy(&bytes).into()));
                         }
-                        Event::State(state_store.load())
+                        Event::State(state_store.load(), true)
                     }
                     StateJob::Apply(change) => {
-                        Event::State(state_store.apply(change, Utc::now().timestamp()))
+                        let reload_editor = matches!(&change, Change::Rules { .. });
+                        Event::State(
+                            state_store.apply(change, Utc::now().timestamp()),
+                            reload_editor,
+                        )
                     }
-                    StateJob::Connection => Event::Connection(state_store.connection()),
+                    StateJob::Connection => {
+                        let connection = state_store.connection();
+                        let current = (connection.at, connection.revision);
+                        if current == last_connection {
+                            continue;
+                        }
+                        last_connection = current;
+                        Event::Connection(connection)
+                    }
                 };
                 if state_events.send(event).is_err() {
                     break;
@@ -156,7 +206,7 @@ impl App {
                 ctx.request_repaint();
             }
         });
-        let ctx = cc.egui_ctx.clone();
+        let ctx = ui_context.clone();
         let update_store = store.clone();
         std::thread::spawn(move || {
             while let Ok(job) = update_rx.recv() {
@@ -200,12 +250,26 @@ impl App {
             allowlist: String::new(),
             schedules: vec![],
             minutes: 25,
+            custom_duration: false,
             locked: false,
             phrase: String::new(),
             connection: Connection::default(),
             next_connection: Instant::now(),
+            close_requested: false,
+            diagnostic: std::env::var_os("WEBSITEBLOCKER_CAPTURE").is_some()
+                || std::env::var_os("WEBSITEBLOCKER_DIAGNOSTICS").is_some(),
         };
         app.submit(StateJob::Load);
+        if let Ok(value) = std::env::var("WEBSITEBLOCKER_CAPTURE")
+            && let Some((tab, path)) = value.split_once('|')
+        {
+            app.tab = match tab {
+                "settings" => Tab::Settings,
+                "rules" => Tab::Rules,
+                _ => Tab::Focus,
+            };
+            let _ = path;
+        }
         app
     }
 
@@ -250,25 +314,28 @@ impl App {
             .collect::<Vec<_>>()
             .join("\n");
     }
-    fn receive(&mut self, ctx: &egui::Context) {
+    pub fn receive(&mut self, _ctx: &egui::Context) {
         while let Ok(event) = self.events.try_recv() {
             match event {
-                Event::State(result) => {
+                Event::State(result, mut reload_editor) => {
                     self.busy = false;
                     match result {
                         Ok(state) => {
                             self.state = state;
                             self.ready = true;
                             self.message =
-                                "Local settings ready. Browser changes apply after its next sync."
+                                "Saved on this computer. The browser companion shows blocking status."
                                     .into();
                             if !self.state.groups.iter().any(|g| g.id == self.selected) {
                                 self.selected = self.state.groups.first().map_or(0, |g| g.id);
+                                reload_editor = true;
                             }
-                            self.load_editor();
+                            if reload_editor {
+                                self.load_editor();
+                            }
                             if !self.startup_checked {
                                 self.startup_checked = true;
-                                if self.state.startup_updates {
+                                if self.state.startup_updates && !self.diagnostic {
                                     self.update_job(UpdateJob::Check);
                                 }
                             }
@@ -298,7 +365,7 @@ impl App {
                     self.update_busy = false;
                     self.progress = None;
                     match result {
-                        Ok(()) => ctx.send_viewport_cmd(egui::ViewportCommand::Close),
+                        Ok(()) => self.close_requested = true,
                         Err(e) => self.update_message = format!("Update was not installed: {e}"),
                     }
                 }
@@ -308,95 +375,140 @@ impl App {
 
     fn focus(&mut self, ui: &mut egui::Ui) {
         let now = Utc::now().timestamp();
-        ui.heading("Give your next task some space.");
-        ui.label("Choose a website list, set a timer, and begin when you are ready.");
-        ui.add_space(18.0);
-        if let Some(focus) = &self.state.focus
-            && focus.end > now
-        {
-            let remaining = focus.end - now;
-            let name = self
-                .state
-                .groups
-                .iter()
-                .find(|g| g.id == focus.group_id)
-                .map_or("Rule set", |g| &g.name);
-            ui.label(
-                RichText::new(format!("{:02}:{:02}", remaining / 60, remaining % 60))
-                    .size(54.0)
-                    .color(Color32::from_rgb(33, 92, 82)),
-            );
-            ui.label(format!(
-                "{name} · {}",
-                if focus.locked {
-                    "Locked until the timer ends"
-                } else {
-                    "Flexible focus"
-                }
-            ));
-        } else {
-            ui.label(RichText::new("Ready when you are.").size(30.0));
-            let previous = self.selected;
-            egui::ComboBox::from_label("Website list")
-                .selected_text(
-                    self.state
+        let active = self.state.focus.as_ref().is_some_and(|f| f.end > now);
+        ui.heading("Make space for your next task.");
+        ui.label("Choose a website list and give yourself an uninterrupted stretch.");
+        ui.add_space(12.0);
+        egui::Frame::new()
+            .fill(Color32::WHITE)
+            .corner_radius(12)
+            .inner_margin(22.0)
+            .show(ui, |ui| {
+                ui.set_width(ui.available_width());
+                ui.label(
+                    RichText::new(if active {
+                        "FOCUS IN PROGRESS"
+                    } else {
+                        "YOUR NEXT SESSION"
+                    })
+                    .size(12.0)
+                    .strong()
+                    .color(ACCENT),
+                );
+                if let Some(focus) = &self.state.focus
+                    && focus.end > now
+                {
+                    let remaining = focus.end - now;
+                    ui.label(
+                        RichText::new(format!("{:02}:{:02}", remaining / 60, remaining % 60))
+                            .size(52.0)
+                            .color(ACCENT),
+                    );
+                    let name = self
+                        .state
                         .groups
                         .iter()
-                        .find(|g| g.id == self.selected)
-                        .map_or("Choose a list", |g| &g.name),
-                )
-                .show_ui(ui, |ui| {
-                    for group in self.state.groups.iter().filter(|g| g.enabled) {
-                        ui.selectable_value(&mut self.selected, group.id, &group.name);
+                        .find(|g| g.id == focus.group_id)
+                        .map_or("Website list", |g| &g.name);
+                    ui.label(format!(
+                        "{name} · {}",
+                        if focus.locked {
+                            "Locked until the timer ends"
+                        } else {
+                            "Flexible session"
+                        }
+                    ));
+                } else {
+                    let previous = self.selected;
+                    ui.label("Website list");
+                    egui::ComboBox::from_id_salt("focus-list")
+                        .width(280.0)
+                        .selected_text(
+                            self.state
+                                .groups
+                                .iter()
+                                .find(|g| g.id == self.selected)
+                                .map_or("Choose a list", |g| &g.name),
+                        )
+                        .show_ui(ui, |ui| {
+                            for group in self.state.groups.iter().filter(|g| g.enabled) {
+                                ui.selectable_value(&mut self.selected, group.id, &group.name);
+                            }
+                        });
+                    if previous != self.selected {
+                        self.load_editor();
                     }
-                });
-            if self.selected != previous {
-                self.load_editor();
-            }
-            ui.horizontal(|ui| {
-                ui.label("Minutes");
-                ui.add(egui::DragValue::new(&mut self.minutes).range(1..=240));
+                    ui.add_space(4.0);
+                    ui.horizontal(|ui| {
+                        ui.label("Duration");
+                        egui::ComboBox::from_id_salt("duration")
+                            .width(160.0)
+                            .selected_text(if self.custom_duration {
+                                "Custom duration".to_string()
+                            } else {
+                                format!("{} minutes", self.minutes)
+                            })
+                            .show_ui(ui, |ui| {
+                                for minutes in [25, 50, 90] {
+                                    if ui
+                                        .selectable_label(
+                                            !self.custom_duration && self.minutes == minutes,
+                                            format!("{minutes} minutes"),
+                                        )
+                                        .clicked()
+                                    {
+                                        self.minutes = minutes;
+                                        self.custom_duration = false;
+                                    }
+                                }
+                                ui.selectable_value(
+                                    &mut self.custom_duration,
+                                    true,
+                                    "Custom duration",
+                                );
+                            });
+                        if self.custom_duration {
+                            ui.add(
+                                egui::DragValue::new(&mut self.minutes)
+                                    .range(1..=240)
+                                    .suffix(" min"),
+                            );
+                        }
+                    });
+                    ui.checkbox(&mut self.locked, "Keep this session locked until it ends");
+                    ui.small("A locked session cannot be stopped early and has no breaks.");
+                    ui.add_space(4.0);
+                    if primary(ui, format!("Start {}-minute focus", self.minutes)).clicked() {
+                        self.submit(StateJob::Apply(Change::Start {
+                            group_id: self.selected,
+                            minutes: self.minutes,
+                            locked: self.locked,
+                        }));
+                    }
+                }
             });
-            ui.checkbox(&mut self.locked, "Lock this session until the timer ends");
-            ui.label(
-                "Locked sessions prevent rule edits, early stopping and breaks inside this app.",
-            );
-            if ui.button("Start focus session").clicked() {
-                self.submit(StateJob::Apply(Change::Start {
-                    group_id: self.selected,
-                    minutes: self.minutes,
-                    locked: self.locked,
-                }));
-            }
-        }
-        ui.add_space(18.0);
-        ui.separator();
-        ui.heading("Intentional breaks");
+        ui.add_space(10.0);
         if self.state.pause_until > now {
             ui.label(format!(
-                "All rules paused for {} more seconds.",
+                "Blocking paused · {} seconds remaining",
                 self.state.pause_until - now
             ));
-            if ui.button("Resume blocking now").clicked() {
+            if ui.button("Resume blocking").clicked() {
                 self.submit(StateJob::Apply(Change::Resume));
             }
         }
-        ui.label("Type TAKE A BREAK for a five-minute pause (once every 30 minutes), or END FOCUS to end a flexible session. Schedules resume independently.");
-        ui.text_edit_singleline(&mut self.phrase);
-        ui.add_enabled_ui(!self.state.locked(now), |ui| {
-            ui.horizontal(|ui| {
-                if ui.button("Take a 5-minute break").clicked() {
-                    self.submit(StateJob::Apply(Change::Break(self.phrase.clone())));
-                    self.phrase.clear();
-                }
-                if ui.button("End focus session").clicked() {
-                    self.submit(StateJob::Apply(Change::Stop(self.phrase.clone())));
-                    self.phrase.clear();
-                }
+        egui::CollapsingHeader::new("Take a break or end a session").default_open(active).show(ui, |ui| {
+            if self.state.locked(now) { ui.label("This session is locked. Blocking ends when its timer runs out."); return; }
+            ui.small("Type TAKE A BREAK for a five-minute pause, or END FOCUS to stop a flexible session.");
+            ui.add(egui::TextEdit::singleline(&mut self.phrase).margin(egui::Margin::symmetric(8, 8)).desired_width(300.0).hint_text("Confirmation phrase"));
+            ui.horizontal_wrapped(|ui| {
+                if ui.button("Take 5-minute break").clicked() { self.submit(StateJob::Apply(Change::Break(self.phrase.clone()))); self.phrase.clear(); }
+                if ui.add_enabled(active, egui::Button::new("End session")).clicked() { self.submit(StateJob::Apply(Change::Stop(self.phrase.clone()))); self.phrase.clear(); }
             });
+            ui.small("One break per 30 minutes. Scheduled blocks continue after a focus session ends.");
         });
-        ui.add_space(16.0);
-        ui.label("Closing this window does not stop browser schedules. WebsiteBlocker never changes hosts, DNS, firewall rules or other applications.");
+        ui.add_space(8.0);
+        ui.small("Your browser companion keeps schedules running when you close this window.");
     }
 
     fn save_rules(&mut self, delete: bool) -> Result<(), String> {
@@ -438,78 +550,69 @@ impl App {
     }
 
     fn rules(&mut self, ui: &mut egui::Ui) {
-        ui.heading("Websites & schedules");
-        ui.label("Lists are active during their schedules or a focus session. With no schedule, a list is timer-only.");
+        ui.heading("Websites");
+        ui.label("Block these websites during a focus session or a weekly schedule.");
         if self.state.locked(Utc::now().timestamp()) {
             ui.colored_label(
                 Color32::DARK_RED,
-                "Rule editing is locked until your focus timer ends.",
+                "Editing is locked until your focus timer ends.",
             );
         }
         ui.add_enabled_ui(!self.state.locked(Utc::now().timestamp()), |ui| {
             let previous = self.selected;
-            ui.horizontal(|ui| {
-                egui::ComboBox::from_id_salt("rule-list").selected_text(self.state.groups.iter().find(|g| g.id == self.selected).map_or("New rule set", |g| &g.name))
+            ui.horizontal_wrapped(|ui| {
+                egui::ComboBox::from_id_salt("rule-list").width(230.0)
+                    .selected_text(self.state.groups.iter().find(|g| g.id == self.selected).map_or("New website list", |g| &g.name))
                     .show_ui(ui, |ui| { for g in &self.state.groups { ui.selectable_value(&mut self.selected, g.id, &g.name); } });
                 if ui.add_enabled(self.state.groups.len() < 20, egui::Button::new("New list")).clicked() {
                     self.selected = self.state.groups.iter().map(|g| g.id).max().unwrap_or(0).saturating_add(1);
                     self.name = "New focus list".into(); self.enabled = true; self.patterns.clear(); self.schedules.clear();
                 } else if previous != self.selected { self.load_editor(); }
             });
-            ui.horizontal(|ui| { ui.label("Name"); ui.text_edit_singleline(&mut self.name); ui.checkbox(&mut self.enabled, "Enabled"); });
-            ui.label("One website per line: example.com includes subdomains; =example.com matches only that host. Add /path for a case-sensitive path prefix.");
-            ui.add(egui::TextEdit::multiline(&mut self.patterns).desired_rows(5).desired_width(f32::INFINITY).hint_text("example.com\n=video.example.com/shorts"));
-            ui.add_space(10.0); ui.label(RichText::new("Recurring schedules").strong());
-            let mut remove = None;
-            for (index, s) in self.schedules.iter_mut().enumerate() {
-                ui.group(|ui| { ui.push_id(index, |ui| {
-                    ui.horizontal(|ui| { for (day, label) in ["M", "Tu", "W", "Th", "F", "Sa", "Su"].iter().enumerate() { ui.checkbox(&mut s.days[day], *label); }
-                        if ui.small_button("Remove").clicked() { remove = Some(index); }
+            ui.horizontal(|ui| { ui.label("Name"); ui.add(egui::TextEdit::singleline(&mut self.name).margin(egui::Margin::symmetric(8, 8)).desired_width(270.0)); ui.checkbox(&mut self.enabled, "Enabled"); });
+            ui.label(RichText::new("Websites to block").strong());
+            ui.add(egui::TextEdit::multiline(&mut self.patterns).desired_rows(4).desired_width(f32::INFINITY).hint_text("example.com\nvideo.example.com/shorts"));
+            egui::CollapsingHeader::new("Website matching help").show(ui, |ui| {
+                ui.small("One website per line. example.com includes subdomains; =example.com is an exact host. /path is a case-sensitive prefix. Use domains without https://.");
+            });
+            egui::CollapsingHeader::new(format!("Weekly schedules ({})", self.schedules.len())).default_open(!self.schedules.is_empty()).show(ui, |ui| {
+                let mut remove = None;
+                for (index, schedule) in self.schedules.iter_mut().enumerate() {
+                    ui.push_id(index, |ui| {
+                        ui.horizontal_wrapped(|ui| {
+                            for (day, label) in ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].iter().enumerate() { ui.toggle_value(&mut schedule.days[day], *label); }
+                            if ui.small_button("Remove").clicked() { remove = Some(index); }
+                        });
+                        ui.horizontal_wrapped(|ui| {
+                            ui.add(egui::TextEdit::singleline(&mut schedule.start).margin(egui::Margin::symmetric(8, 8)).desired_width(65.0)); ui.label("to");
+                            ui.add(egui::TextEdit::singleline(&mut schedule.end).margin(egui::Margin::symmetric(8, 8)).desired_width(65.0)); ui.label("in");
+                            ui.add(egui::TextEdit::singleline(&mut schedule.timezone).margin(egui::Margin::symmetric(8, 8)).desired_width(180.0));
+                        });
                     });
-                    ui.horizontal(|ui| {
-                        ui.label("From"); ui.add(egui::TextEdit::singleline(&mut s.start).desired_width(55.0));
-                        ui.label("to"); ui.add(egui::TextEdit::singleline(&mut s.end).desired_width(55.0));
-                        ui.label("Timezone"); ui.add(egui::TextEdit::singleline(&mut s.timezone).desired_width(170.0));
-                    });
-                }); });
-            }
-            if let Some(index) = remove { self.schedules.remove(index); }
-            if ui.add_enabled(self.schedules.len() < 14, egui::Button::new("Add schedule")).clicked() { self.schedules.push(ScheduleDraft::default()); }
-            ui.small("Times use the named IANA zone, e.g. Europe/Minsk, Europe/London or America/New_York. The browser validates the zone. Overnight ranges belong to their start day. DST repeats both occurrences and skips nonexistent times.");
-            ui.add_space(10.0); ui.label(RichText::new("Global allowed websites").strong());
-            ui.label("These exceptions take priority over every active list. The same domain/path syntax applies.");
-            ui.add(egui::TextEdit::multiline(&mut self.allowlist).desired_rows(3).desired_width(f32::INFINITY).hint_text("help.example.com"));
-            ui.horizontal(|ui| {
-                if ui.button("Save websites & schedules").clicked() && let Err(e) = self.save_rules(false) { self.message = e; }
-                if ui.button("Delete selected list").clicked() && let Err(e) = self.save_rules(true) { self.message = e; }
-                if ui.button("Discard edits / reload").clicked() { self.submit(StateJob::Load); }
+                }
+                if let Some(index) = remove { self.schedules.remove(index); }
+                if ui.add_enabled(self.schedules.len() < 14, egui::Button::new("Add schedule")).clicked() { self.schedules.push(ScheduleDraft::default()); }
+                ui.small("Use a named timezone, e.g. Europe/Minsk. Overnight ranges belong to their start day.");
+            });
+            egui::CollapsingHeader::new("Always allowed websites").default_open(!self.allowlist.is_empty()).show(ui, |ui| {
+                ui.small("Exceptions take priority over every active list.");
+                ui.add(egui::TextEdit::multiline(&mut self.allowlist).desired_rows(2).desired_width(f32::INFINITY).hint_text("help.example.com"));
+            });
+            ui.add_space(8.0);
+            ui.horizontal_wrapped(|ui| {
+                if primary(ui, "Save changes").clicked() && let Err(error) = self.save_rules(false) { self.message = error; }
+                if ui.button("Discard edits").clicked() { self.submit(StateJob::Load); }
+                ui.add_space(16.0);
+                if ui.button(RichText::new("Delete list").color(Color32::from_rgb(150, 53, 43))).clicked() && let Err(error) = self.save_rules(true) { self.message = error; }
             });
         });
     }
 
     fn settings(&mut self, ui: &mut egui::Ui) {
-        ui.heading("Settings & connection");
-        ui.label(format!(
-            "Installed version: {} · Windows x64 release target",
-            updater::VERSION
-        ));
+        ui.heading("Settings");
+        ui.label(format!("WebsiteBlocker {}", updater::VERSION));
         ui.add_space(10.0);
-        ui.label(RichText::new("Browser companion").strong());
-        if self.connection.at > 0 {
-            ui.label(format!(
-                "Native host last contacted {} seconds ago (revision {}).",
-                (Utc::now().timestamp() - self.connection.at).max(0),
-                self.connection.revision
-            ));
-        } else {
-            ui.label("No browser handshake recorded yet.");
-        }
-        ui.label("A handshake confirms communication, not that a browser applied every rule. Check the extension popup for enforcement status and errors.");
-        ui.label("1. Extract the companion ZIP and load extension/ as an unpacked Chromium extension.\n2. Copy its ID and run scripts/Register-NativeHost.ps1 with your EXE path, extension ID and browser.\n3. Click Sync with desktop in the extension popup.");
-        ui.label("Setup is per Windows user and per browser. See docs/BROWSER-SETUP.md. This app never installs extensions automatically.");
-        ui.add_space(12.0);
-        ui.separator();
-        ui.heading("Updates");
+        ui.label(RichText::new("Updates").size(19.0).strong());
         let mut startup = self.state.startup_updates;
         if ui
             .checkbox(&mut startup, "Check for updates on startup")
@@ -517,70 +620,104 @@ impl App {
         {
             self.submit(StateJob::Apply(Change::StartupUpdates(startup)));
         }
-        ui.label("Startup checks are quiet and run in the background. Disabling them makes no startup update request. Manual checks stay available.");
+        ui.small("Checks run quietly. Downloads and installation always need your action.");
         if ui
             .add_enabled(!self.update_busy, egui::Button::new("Check for updates"))
             .clicked()
         {
             self.update_job(UpdateJob::Check);
         }
-        ui.label(&self.update_message);
-        if !self.install_result.is_empty() {
-            ui.label(format!("Last installation result: {}", self.install_result));
+        if !self.update_message.is_empty() {
+            ui.label(&self.update_message);
         }
         if let Some(update) = self.available.clone() {
-            ui.label(format!("Version {} is available. Installation will close and restart this app; local settings are preserved.", update.version));
+            ui.label(format!(
+                "Version {} is available. Your settings will be preserved; the app will restart.",
+                update.version
+            ));
             if ui
-                .add_enabled(!self.update_busy, egui::Button::new("Download and install"))
+                .add_enabled(
+                    !self.update_busy,
+                    egui::Button::new(RichText::new("Download and install").color(Color32::WHITE))
+                        .fill(ACCENT),
+                )
                 .clicked()
             {
                 self.update_job(UpdateJob::Install(update));
             }
         }
         if let Some((done, total)) = self.progress {
-            if let Some(total) = total.filter(|v| *v > 0) {
+            if let Some(total) = total.filter(|value| *value > 0) {
                 ui.add(egui::ProgressBar::new(done as f32 / total as f32).show_percentage());
             }
-            ui.label(format!("Downloaded {} KiB", done / 1024));
+            ui.small(format!("Downloaded {} KiB", done / 1024));
         }
-        ui.small("Updates use public GitHub HTTPS without login. A missing repository/release or network error is reported as unavailable. No update has been published by this project yet.");
+        if !self.install_result.is_empty() {
+            ui.label(format!("Last installation: {}", self.install_result));
+        }
         ui.add_space(12.0);
         ui.separator();
-        ui.label(RichText::new("Local data & scope").strong());
-        ui.label(format!("Settings directory: {}", self.store_dir.display()));
-        ui.label("No browsing history or page content is collected. Cached rules survive desktop closure for up to eight days without a successful native sync. An expired cache clears blocking and reports a connection error.");
-        ui.label("This is a voluntary focus tool. The machine owner can disable the extension, edit local state, change the clock or use another browser. It does not enforce system-wide or uninstall-proof restrictions.");
+        ui.add_space(8.0);
+        ui.label(RichText::new("Browser companion").size(19.0).strong());
+        if let Some(at) = chrono::DateTime::from_timestamp(self.connection.at, 0)
+            .filter(|_| self.connection.at > 0)
+        {
+            ui.label(format!(
+                "Last desktop contact: {} UTC",
+                at.format("%Y-%m-%d %H:%M:%S")
+            ));
+        } else {
+            ui.label("Not connected yet");
+        }
+        ui.small("The extension popup shows which lists are actually blocking and any connection errors.");
+        egui::CollapsingHeader::new("Set up Chrome or Edge").show(ui, |ui| {
+            ui.label("1. Extract the companion ZIP and load its extension folder in your browser.\n2. Copy the extension ID and register the companion using the included setup script.\n3. Open the extension popup and choose Sync with desktop.");
+            ui.small("Full steps: docs/BROWSER-SETUP.md in the companion ZIP. Setup is separate for each browser; no administrator rights are needed.");
+        });
+        ui.add_space(12.0);
+        ui.separator();
+        egui::CollapsingHeader::new("Local data & privacy").show(ui, |ui| {
+            ui.label(format!("Settings: {}", self.store_dir.display()));
+            ui.label("Browsing history and page content are not recorded. Update checks contact GitHub. Rules stay local.");
+            ui.small("A valid cached policy runs for up to eight days without a desktop sync; expired rules clear automatically. This is a voluntary focus tool that the machine owner can bypass.");
+        });
     }
 }
 
-impl eframe::App for App {
-    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        self.receive(ctx);
-        if self.next_connection <= Instant::now() {
+impl App {
+    pub fn capture_ready(&self) -> bool {
+        self.ready && !self.busy
+    }
+    pub fn maintenance_deadline(&self) -> Option<Instant> {
+        (self.tab == Tab::Settings).then_some(self.next_connection)
+    }
+    pub fn maintenance_tick(&mut self) {
+        if self.tab == Tab::Settings && self.next_connection <= Instant::now() {
             let _ = self.jobs.try_send(StateJob::Connection);
             self.next_connection = Instant::now() + Duration::from_secs(30);
         }
-        // Timed repaint only while a visible countdown needs it; never a continuous animation.
+    }
+    pub fn render(&mut self, ctx: &egui::Context) {
+        self.receive(ctx);
         let now = Utc::now().timestamp();
-        let countdown =
-            self.state.focus.as_ref().is_some_and(|f| f.end > now) || self.state.pause_until > now;
-        ctx.request_repaint_after(if countdown {
-            Duration::from_secs(1)
-        } else {
-            Duration::from_secs(30)
-        });
+        if self.tab == Tab::Focus
+            && (self.state.focus.as_ref().is_some_and(|f| f.end > now)
+                || self.state.pause_until > now)
+        {
+            ctx.request_repaint_after(Duration::from_secs(1));
+        }
         egui::TopBottomPanel::top("header").show(ctx, |ui| {
             ui.add_space(8.0);
             ui.horizontal(|ui| {
                 ui.label(
                     RichText::new("◎  WebsiteBlocker")
-                        .size(23.0)
+                        .size(22.0)
                         .strong()
                         .color(Color32::from_rgb(33, 92, 82)),
                 );
                 ui.separator();
                 ui.selectable_value(&mut self.tab, Tab::Focus, "Focus");
-                ui.selectable_value(&mut self.tab, Tab::Rules, "Websites & schedules");
+                ui.selectable_value(&mut self.tab, Tab::Rules, "Websites");
                 ui.selectable_value(&mut self.tab, Tab::Settings, "Settings");
             });
             ui.add_space(8.0);
@@ -600,22 +737,71 @@ impl eframe::App for App {
                 self.submit(StateJob::Load);
             }
         });
-        egui::CentralPanel::default().show(ctx, |ui| {
-            egui::ScrollArea::vertical().show(ui, |ui| {
-                ui.add_space(14.0);
-                ui.add_enabled_ui(self.ready && !self.busy, |ui| match self.tab {
-                    Tab::Focus => self.focus(ui),
-                    Tab::Rules => self.rules(ui),
-                    Tab::Settings => self.settings(ui),
+        egui::CentralPanel::default()
+            .frame(
+                egui::Frame::new()
+                    .fill(Color32::from_rgb(244, 247, 244))
+                    .inner_margin(24.0),
+            )
+            .show(ctx, |ui| {
+                egui::ScrollArea::vertical().show(ui, |ui| {
+                    ui.set_max_width(790.0);
+                    ui.add_enabled_ui(self.ready && !self.busy, |ui| match self.tab {
+                        Tab::Focus => self.focus(ui),
+                        Tab::Rules => self.rules(ui),
+                        Tab::Settings => self.settings(ui),
+                    });
                 });
             });
-        });
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    fn settle(app: &mut App, context: &egui::Context) {
+        let deadline = Instant::now() + Duration::from_secs(3);
+        while app.busy && Instant::now() < deadline {
+            app.receive(context);
+            std::thread::sleep(Duration::from_millis(5));
+        }
+        assert!(!app.busy, "{}", app.message);
+        assert!(app.ready, "{}", app.message);
+    }
+
+    #[test]
+    fn settings_and_focus_actions_preserve_unsaved_website_edits() {
+        std::fs::create_dir_all(".test-output").unwrap();
+        let temp = tempfile::tempdir_in(".test-output").unwrap();
+        let store = Store {
+            dir: temp.path().into(),
+        };
+        store
+            .apply(Change::StartupUpdates(false), Utc::now().timestamp())
+            .unwrap();
+        let context = egui::Context::default();
+        let mut app = App::with_context(&context, store);
+        settle(&mut app, &context);
+        app.name = "Unsaved list name".into();
+        app.patterns = "work.example.com".into();
+        app.allowlist = "help.example.com".into();
+        app.submit(StateJob::Apply(Change::StartupUpdates(true)));
+        settle(&mut app, &context);
+        app.submit(StateJob::Apply(Change::Start {
+            group_id: 1,
+            minutes: 1,
+            locked: false,
+        }));
+        settle(&mut app, &context);
+        assert_eq!(app.name, "Unsaved list name");
+        assert_eq!(app.patterns, "work.example.com");
+        assert_eq!(app.allowlist, "help.example.com");
+        app.submit(StateJob::Load);
+        settle(&mut app, &context);
+        assert_eq!(app.name, "Distractions");
+        assert_ne!(app.patterns, "work.example.com");
+    }
+
     #[test]
     fn time_input_bounds() {
         assert_eq!(parse_time("23:59").unwrap(), 1439);

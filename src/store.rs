@@ -8,6 +8,13 @@ use std::{
 };
 
 pub fn data_dir() -> Result<PathBuf, String> {
+    if let Some(value) = std::env::var_os("WEBSITEBLOCKER_DATA_DIR") {
+        let path = PathBuf::from(value);
+        if !path.is_absolute() {
+            return Err("WEBSITEBLOCKER_DATA_DIR must be absolute.".into());
+        }
+        return Ok(path);
+    }
     #[cfg(windows)]
     let root = std::env::var_os("LOCALAPPDATA").ok_or("LOCALAPPDATA is unavailable.")?;
     #[cfg(not(windows))]

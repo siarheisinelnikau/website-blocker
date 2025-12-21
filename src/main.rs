@@ -1,7 +1,7 @@
 #![cfg_attr(target_os = "windows", windows_subsystem = "windows")]
 
+mod desktop;
 mod ui;
-mod window_loop;
 
 use website_blocker::{
     native,
@@ -12,6 +12,7 @@ use website_blocker::{
 fn main() {
     if let Err(error) = run() {
         eprintln!("WebsiteBlocker: {error}");
+        std::process::exit(1);
     }
 }
 
@@ -47,21 +48,5 @@ fn run() -> Result<(), String> {
             "Unknown arguments. Native messaging accepts a browser extension origin only.".into(),
         );
     }
-    let event_loop = winit::event_loop::EventLoop::<eframe::UserEvent>::with_user_event()
-        .build()
-        .map_err(|e| e.to_string())?;
-    let app = eframe::create_native(
-        "WebsiteBlocker",
-        eframe::NativeOptions {
-            viewport: eframe::egui::ViewportBuilder::default()
-                .with_inner_size([980.0, 740.0])
-                .with_min_inner_size([760.0, 580.0]),
-            ..Default::default()
-        },
-        Box::new(move |cc| Ok(Box::new(ui::App::new(cc, store)))),
-        &event_loop,
-    );
-    event_loop
-        .run_app(&mut window_loop::Reactive(app))
-        .map_err(|e| e.to_string())
+    desktop::run(store)
 }
