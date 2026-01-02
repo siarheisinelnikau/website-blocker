@@ -2,7 +2,7 @@
 
 A local, voluntary focus tool for websites. Manage website lists, recurring schedules and timed focus sessions in a Rust desktop app; a Chromium Manifest V3 companion enforces navigation rules in the browser. Independent implementation, with no affiliation to Cold Turkey and no copied code or assets.
 
-**Status: first implementation, Windows x64 target.** Noninteractive checks are recorded in [verification notes](docs/VERIFICATION.md). Real desktop rendering, extension installation, browser enforcement and update/restart behavior still require manual validation. No repository or release has been published in this work.
+**Status: local Windows x64 preview.** The desktop now uses CPU rasterization and Windows GDI. Bounded idle/minimized/hidden diagnostics, real renderer captures, and live Chrome/Edge extension checks are recorded in [verification notes](docs/VERIFICATION.md). OS input and perceived smoothness after the renderer change still need a user check; real update installation remains unverified. Nothing has been published.
 
 ## What it does
 
@@ -19,7 +19,7 @@ A local, voluntary focus tool for websites. Manage website lists, recurring sche
 
 1. Build/package locally using the commands below. Keep `WebsiteBlocker-v0.1.0.exe` in a stable, user-writable folder. Extract the companion ZIP into another stable folder.
 2. Follow [browser setup](docs/BROWSER-SETUP.md) to load the extension and explicitly register its native host for Chrome or Edge. This step changes one per-user registry entry and is not performed by the app or build.
-3. Open the EXE. Edit **Websites & schedules**, save, and use the extension popup to confirm a successful sync. The initial example list is timer-only and does not block anything until a session starts or a schedule is saved.
+3. Open the EXE. Edit **Websites**, save, and use the extension popup to confirm a successful sync. The initial example list is timer-only and does not block anything until a session starts or a schedule is saved.
 4. Start a short flexible session on a test domain first. Navigation matching requires the extension to be enabled in that browser profile.
 
 Example pattern list:
@@ -68,6 +68,21 @@ Settings live at `%LOCALAPPDATA%\WebsiteBlocker\state.json`. Keep a copy before 
 
 ## Screenshots
 
-Real screenshots of the application and Settings are **pending**. This implementation session explicitly prohibited launching GUI applications or taking screenshots. No mock screenshots or broken image placeholders are supplied. Capture and embed real images after the manual validation checklist passes.
+Real client-area captures from the application's CPU/GDI renderer, using disposable example-domain settings at 880 × 680 pixels. Each capture saves a PNG and exits; no desktop automation is needed. Startup update checks are disabled in these fixtures only.
+
+![Focus setup with a website list, duration and explicit session lock](docs/images/focus.png)
+
+![Website list editor with schedules and allowed-site sections](docs/images/rules.png)
+
+![Settings with startup updates and browser companion setup](docs/images/settings.png)
+
+For a bounded developer capture after applying the rendering gate:
+
+```powershell
+python scripts/Check-Rendering.py           # 16.5-second isolated diagnostic, then exits
+python scripts/Capture-Readme.py            # three real renderer captures, each exits
+```
+
+These are explicit GUI diagnostic commands, separate from the noninteractive build checks. The diagnostic reports actual layout/raster/present counts and CPU time. It does not certify OS input, accessibility traversal or subjective smoothness.
 
 See [architecture](docs/ARCHITECTURE.md), [manual checks and verification](docs/VERIFICATION.md), and the [first release draft](docs/RELEASE-NOTES-v0.1.0.md). MIT-licensed; third-party dependencies retain their own licenses as declared in their pinned crate distributions.

@@ -49,6 +49,7 @@ while any(data[descriptor:descriptor + 20]):
     imports.append(data[name:data.index(b"\0", name)].decode("ascii"))
     descriptor += 20
 assert not any(name.lower().startswith(("vcruntime", "msvcp")) for name in imports), "Dynamic MSVC CRT dependency"
+assert not any(name.lower().startswith(("opengl", "d3d", "dxgi", "vulkan")) for name in imports), "Unexpected GPU renderer dependency"
 
 with zipfile.ZipFile(dist / zip_name) as archive:
     assert archive.testzip() is None

@@ -1,25 +1,27 @@
-# Project instructions
+# WebsiteBlocker project instructions
 
-## Authorized task and scope
-The user explicitly requested a separate Codex Desktop implementation chat for this project. Work only inside this repository. Other new projects are being developed in parallel under E:/work/github: do not edit sibling projects, parent configuration, or shared build output. Read TASK.md before implementation. Use explicit repository working directories for every shell/Git command.
+## Scope and current authorization
 
-## Unattended code-only session
-The user is AFK and unavailable. Do not ask questions, request approvals/elevation, or start login/token/browser flows. Make reasonable implementation choices and continue all unblocked code work. If a tool action would need approval, skip that action, record the exact limitation, and use a safe code-only alternative.
-Do not use computer-use/CUA, mouse/keyboard automation, screenshots, browser UI or interactive application control. Do not launch the application, open visible windows, play audio, record screens/microphones, install services/drivers/extensions, change Windows settings, or operate real user files/devices. No GUI smoke tests in this run. Read-only API/web documentation research is fine. No access to credentials or secrets from sibling repositories.
-Safe noninteractive formatting, compilation and focused tests on isolated fixtures are allowed with the existing toolchain. Never request escalation if downloads or tool availability are blocked. Do not run broad benchmarks or stress tests. With many chats active, keep Cargo builds to two jobs and use a repository-local target directory; no shared mutable target directories. If dependencies are unavailable, leave precise verification commands and an honest unverified status.
+Work only in E:/work/github/website-blocker. WebsiteBlocker is a Windows-first website focus manager with a Chromium companion; see TASK.md for the original specification. Preserve existing settings and normal browser profiles. Other projects under E:/work/github are independent: do not edit them, parent configuration, or shared build output. Do not create additional chats or subagents.
 
-## Implementation expectations
-Default to Rust, Windows-first, native desktop UI and one standalone EXE where practical. English is the complete base UI language; identifiers, comments, documentation, commit messages and release notes must be English. Talk to the user in Russian. Use original UI/assets and an open-source license compatible with dependencies (MIT is the preferred baseline).
-Implement actual useful code and a coherent working vertical slice, not only a plan, stubbed dashboard or screenshots of a mock UI. Keep effects behind explicit user actions in the future application. Never label simulations or unavailable platform integrations as working. Put expensive I/O/computation on bounded background workers; idle UI/tray operation must not busy-poll.
-Apply C:/Users/user/.codex/skills/rust-performance/SKILL.md and relevant references for UI/background lifecycle decisions. The user's prohibition on running/controlling the desktop overrides live-observation suggestions. Document deferred manual validation.
+The user authorized GUI/extension verification and real screenshots, then reported severe lag and asked to stop computer use. The current phase is source repair and design review without computer-use/CUA or injected OS input. Earlier Chrome/Edge tests used disposable profiles and restored temporary native registrations. No publishing or remote Git operations are authorized.
 
-## Git and GitHub
-Make frequent small local commits at meaningful milestones, with English messages, including a final commit of finished code and docs. Check status/diffs and stage only this repository. Never amend/delete someone else's history. The repo was initialized locally before the chat started.
-This project is intended for GitHub, but this phase is local implementation/preparation. Do not publish a repository, push, open a PR, or create/alter releases in this run. If remote work is later authorized, use the connected GitHub plugin exclusively, never git remote commands, gh, authenticated shell HTTP, credential helpers or authentication setup.
-Apply C:/Users/user/.codex/skills/github-release-conventions/SKILL.md. Include installed version, manual Check for updates, nonblocking startup checks enabled by default with a persistent opt-out, and user-initiated in-app Download and install with progress/error handling, preservation of data and restart where needed. Do not execute the updater during development. Treat a not-yet-published repository/release as unavailable rather than inventing a release.
+## Required skills and launch gate
 
-## Deliverables and verification
-Provide Cargo sources/lockfile when resolvable, build/package scripts, appropriate noninteractive checks/CI, English README, architecture/usage notes, initial capability release-note draft and a clear list of remaining manual/hardware checks. Use truthful supported-platform/capability labels.
-README screenshots must be real. The user's current no-GUI instruction means screenshots are deferred: explicitly state that real application/settings screenshots and interactive verification are pending. Do not fabricate screenshots, add broken image links or block implementation waiting for screenshots.
-Conclude with what was implemented, relevant commit IDs, checks actually completed, and specific remaining limitations. Do not ask the AFK user for approval or stop early just to offer to continue. Do not create more chats/subagents for this task unless separately authorized.
+Use C:/Users/user/.codex/skills/rust-performance/SKILL.md for all desktop development, including its references/pre-computer-use-gate.md before diagnostic launches or self-capture. Use C:/Users/user/.codex/skills/product-design/SKILL.md for UI/UX and its bounded self-capture workflow for real PNG review. Prefer genuine CPU/software rendering for this ordinary Windows 2D utility. Static/hidden windows must stop unnecessary layout, rasterization and presentation.
 
+Only after source repair is ready, use a bounded isolated diagnostic launch to measure process CPU, actual rendering counters and lifecycle. Stop visual work if that fails; diagnose before another monitored run. A finite render-save-exit capture can establish visual evidence but cannot prove OS input or subjective smoothness. Keep those conclusions separate. Do not launch an old problematic executable or resume computer use during this phase.
+
+## Implementation and verification
+
+Use Rust by default, English for all UI/code/comments/docs/commits, and Russian in conversation. Preserve matching/scheduling behavior, session/break policy, explicit browser consent and local data. Never label a simulation or unavailable integration as working. No hosts/DNS/firewall edits, drivers, services, audio/microphone operations, authentication or credentials. Use only artificial data for tests. Cargo must use at most two jobs and a repository-local target directory.
+
+Keep expensive I/O on bounded workers. Do not busy-poll, force continuous redraws, hide excessive work behind an FPS cap, or change global driver/security settings. Keep the browser responsible for enforcement when the desktop exits. Do not add a tray process without a real workflow need.
+
+Run applicable formatting, Clippy, focused tests and packaging checks. Add regressions for meaningful failures. Use the same production CPU renderer for screenshot capture; capture both the app and Settings and embed real files with English alt text in README. Record exact automated/live checks and remaining manual limitations. Never fabricate screenshots or equate compilation with performance verification.
+
+## Git and distribution
+
+Make small meaningful local commits, including a final commit of completed code/docs; stage only this repository and never rewrite others' history. Use the connected GitHub plugin exclusively if remote work is later authorized. Never use git push/fetch/pull, gh, authenticated shell HTTP, credential setup or token flows as a fallback. Do not publish a repository, PR or release now.
+
+Apply C:/Users/user/.codex/skills/github-release-conventions/SKILL.md. The planned canonical repository is https://github.com/siarheisinelnikau/website-blocker. Windows x64 asset: WebsiteBlocker-v0.1.0.exe (no architecture suffix for a single variant). Preserve installed-version display, manual checks, nonblocking startup checks with a saved opt-out, and explicit user-initiated verified download/install/restart without loss of settings. Do not execute a real update during development; unavailable releases must remain unavailable. Include readable English release notes, required companion files, honest platform labels and real README screenshots.

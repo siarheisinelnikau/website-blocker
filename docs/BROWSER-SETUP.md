@@ -1,6 +1,6 @@
 # Browser setup (manual, Windows)
 
-These steps are intended for a later interactive session. No extension was installed and no registry entry was changed during implementation. Only Chrome/Edge Chromium 120+ is targeted; actual compatibility remains to be checked in a live browser.
+Chrome 156.0.8078.48 and Edge 156.0.4314.50 passed isolated live native-messaging and navigation checks. The test-only registration was restored afterward. The following steps are still required to enable the extension in your normal browser profile. Chromium 120+ is the declared minimum; older versions have not been tested.
 
 1. Place the EXE in a stable user-writable directory and extract the companion ZIP to a stable directory. Do not keep an unpacked extension in a temporary download folder.
 2. Open your browser's extension management page (`chrome://extensions` or `edge://extensions`), enable Developer mode, choose **Load unpacked**, and select the `extension` directory. Review the requested permissions. Copy its 32-character extension ID.
@@ -33,3 +33,7 @@ Unregistering alone leaves the extension's last policy active until its cache ex
 The pure `engine.js` and static pages do not depend on Chromium. The native message framing is common to WebExtensions. A Firefox port still needs a reviewed manifest/background configuration, `browser` API adaptation, `allowed_extensions` native manifest and Mozilla registration location, stable extension ID, and tested declarative redirect/allow priority semantics. This version intentionally does not ship an unverified Firefox manifest.
 
 Primary API references used during implementation: [Chrome native messaging](https://developer.chrome.com/docs/extensions/develop/concepts/native-messaging), [declarativeNetRequest](https://developer.chrome.com/docs/extensions/reference/api/declarativeNetRequest), [alarms](https://developer.chrome.com/docs/extensions/reference/api/alarms).
+
+## Opt-in live developer test
+
+`node scripts/Browser-Smoke.mjs Chrome` or `Edge` launches a disposable profile under `.test-output/`, serves harmless HTTP fixtures on loopback, temporarily points the per-user native-host registration to the test manifest, then restores its original default value. It never uses the normal browser profile or credentials. Use `WEBSITEBLOCKER_TEST_EXE` to select an absolute built EXE; the default is `dist/WebsiteBlocker-v0.1.0.exe`. The test intentionally launches a browser and changes a temporary native registration, so it is separate from Check.ps1 and is never run implicitly by packaging or CI. Chrome uses a DevTools pipe; Edge's launcher required a local DevTools port. These debugging flags apply only to disposable test profiles and do not disable the browser sandbox.
