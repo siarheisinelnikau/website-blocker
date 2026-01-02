@@ -12,10 +12,17 @@ First implementation of a local website focus manager with a Chromium companion.
 - Background startup update checks with an opt-out, manual checks, verified download progress and a portable replacement/restart helper for future compatible GitHub releases.
 - Offline Rust/JavaScript fixture tests, Windows checks and local packaging scripts.
 
+## Improved
+
+- Replaced the desktop OpenGL renderer with CPU rasterization and Win32 GDI, and stopped periodic rendering of unchanged or hidden windows. Bounded diagnostics check actual frame counters and process CPU.
+- Simplified focus setup, increased typography/control sizes, and moved less frequent help/setup details into expandable sections.
+- Preserved unsaved website drafts across update-setting and focus actions.
+- Added real application and Settings captures plus opt-in rendering and Chrome/Edge integration checks.
+
 ## Downloads and requirements
 
 Planned Windows x64 standalone asset: `WebsiteBlocker-v0.1.0.exe`. Also provide `WebsiteBlocker-Companion-v0.1.0.zip` and `checksums.txt`. The EXE and unpacked extension require explicit manual connection setup. Builds are unsigned. No installer, extension store listing or release is published yet.
 
 ## Known limitations
 
-GUI rendering, real Chrome/Edge native communication and enforcement, private-mode behavior, and real update/restart behavior remain manually unverified. Rules affect new top-level HTTP(S) navigations/reloads, not already running pages or SPA history changes. Browser alarms may delay transitions, particularly after sleep. This is voluntary blocking which the machine owner can bypass; no process, DNS or system-wide blocking is provided. Firefox support and real README screenshots are pending. Read docs/VERIFICATION.md before treating this draft as a validated release.
+Real CPU-rendered screens and isolated Chrome/Edge native communication/enforcement have been checked. OS keyboard/mouse behavior and subjective smoothness after the renderer replacement, high-DPI/private-mode behavior, and real update/restart behavior remain unverified. Rules affect new top-level HTTP(S) navigations/reloads, not already running pages or SPA history changes. Browser alarms may delay transitions, particularly after sleep. This is voluntary blocking which the machine owner can bypass; no process, DNS or system-wide blocking is provided. Firefox support is pending. Read docs/VERIFICATION.md before treating this draft as a validated release.

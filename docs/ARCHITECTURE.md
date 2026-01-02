@@ -9,9 +9,19 @@ Snapshot -> local extension cache -> Intl schedule evaluation -> Chromium dynami
 HTTP(S) top-level navigation -> higher-priority allow OR redirect -> local block page
 ```
 
-The desktop uses eframe/egui with an original light visual design. Settings I/O and updates use two separate bounded worker queues. A slow update request does not block starting a session or editing rules. Progress notifications are throttled and do not accumulate when the UI cannot drain them. UI wakeups come from input, worker completion, a one-second visible countdown or a 30-second connection refresh. There is no tray, hide-on-close, boot autostart, continuously running desktop monitor or local HTTP listener. Closing the window exits the desktop process; browser alarms remain responsible for enforcement.
+The desktop uses egui with a consistent green/neutral visual system, readable text and larger controls. Focus setup is the primary task; the website editor and settings have separate routes. Matching help, weekly schedules, exceptions, browser installation steps and local-data details expand only when needed. The desktop remains an editor/session manager rather than a tray-resident monitor: closing it exits, while the browser owns enforcement.
 
-The pinned eframe 0.33.3 source can retain `ControlFlow::Poll` after the final redraw. `window_loop.rs` forwards the winit lifecycle and converts a remaining Poll to Wait in `about_to_wait`, preserving WaitUntil deadlines. This is a source-informed guard, not a measured performance claim. Rendering uses Glow/OpenGL; live GPU, DPI and idle CPU validation remain pending. Do not infer smoothness from a successful build.
+Settings I/O and updates use separate bounded worker queues. A slow update does not block editing or starting focus. A settings change or focus action preserves unsaved website drafts; only explicit reload/discard or successful rule saving rebuilds the editor. Progress messages are throttled and bounded.
+
+## Software rendering and scheduling
+
+The executable has no eframe, Glow, wgpu, OpenGL or DirectX rendering path. The verified route is `egui -> egui_software_backend 0.0.2 (CPU) -> retained BGRA bitmap -> softbuffer 0.4.8 Win32 GDI BitBlt`. The pinned softbuffer Win32 source was inspected. PE imports and the running diagnostic's selected loaded-module checks support this path; Windows desktop composition remains an OS responsibility.
+
+A winit event loop uses Wait/WaitUntil and no Poll. Input, changed worker data, resize/DPI and a visible focus countdown can invalidate the scene. Unchanged OS expose events can blit the retained bitmap without layout/rasterization. A static Focus/Websites page has no periodic UI timer. Settings can request a background connection read every 30 seconds; unchanged reads do not publish a repaint. A visible countdown repaints once per second. Hidden/minimized windows perform no layout, rasterization or presentation; dirty state is retained for restoration. Workers can complete and request shutdown while hidden without requiring a painted frame.
+
+The Win32 winit 0.30 loop may wait immediately after AboutToWait, before observing an exit requested from that callback. The host expires that one final wait and releases the GDI surface/window during exiting. Diagnostic and capture modes have internal limits and independent external timeouts. They are not consumer settings.
+
+`WEBSITEBLOCKER_DATA_DIR` selects an explicit absolute isolated data directory for the desktop and native host. `WEBSITEBLOCKER_CAPTURE=focus|ABSOLUTE.png` (or rules/settings) selects a real route, waits for settings readiness and three software-rendered frames, atomically writes the CPU bitmap as PNG and exits. Unknown routes, invalid output paths and failures return nonzero. Capture/diagnostic modes require an explicit data directory and suppress startup update checks. `WEBSITEBLOCKER_DIAGNOSTICS` writes opt-in aggregate counters, phase CPU samples and targeted module observations during a bounded visible/minimized/restored/hidden test. No per-frame production logging or automation server is included.
 
 ## Rules and schedules
 
