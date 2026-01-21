@@ -15,14 +15,17 @@ use std::{
 };
 use website_blocker::{
     model::{Group, Schedule, State, parse_patterns},
-    store::{Change, Connection, Store},
+    setup::{self, Browser, Overview, UserRegistry},
+    store::{Change, Store},
     updater::{self, Update},
 };
 
 enum StateJob {
     Load,
     Apply(Change),
-    Connection,
+    SetupScan(bool),
+    PrepareBrowser(Browser),
+    OpenBrowser(Browser),
 }
 enum UpdateJob {
     Check,
@@ -30,11 +33,14 @@ enum UpdateJob {
 }
 enum Event {
     State(Result<State, String>, bool),
-    Connection(Connection),
     InstallResult(String),
     Update(Result<Option<Update>, String>),
     Progress(u64, Option<u64>),
     Install(Result<(), String>),
+    Setup(Overview),
+    SetupError(String),
+    Prepared(Result<Overview, String>),
+    BrowserOpened(Result<(), String>),
 }
 
 #[derive(PartialEq)]
@@ -42,6 +48,7 @@ enum Tab {
     Focus,
     Rules,
     Settings,
+    Browser,
 }
 
 #[derive(Clone)]
@@ -125,8 +132,13 @@ pub struct App {
     custom_duration: bool,
     locked: bool,
     phrase: String,
-    connection: Connection,
     next_connection: Instant,
+    setup: Overview,
+    setup_loaded: bool,
+    setup_working: bool,
+    setup_browser: Browser,
+    setup_message: String,
+    setup_wait_until: Option<Instant>,
     pub close_requested: bool,
     pub diagnostic: bool,
 }
@@ -170,7 +182,7 @@ impl App {
         let state_store = store.clone();
         let state_events = event_tx.clone();
         std::thread::spawn(move || {
-            let mut last_connection = (0, 0);
+            let mut last_setup: Option<Result<Overview, String>> = None;
             while let Ok(job) = state_rx.recv() {
                 let event = match job {
                     StateJob::Load => {
@@ -190,14 +202,31 @@ impl App {
                             reload_editor,
                         )
                     }
-                    StateJob::Connection => {
-                        let connection = state_store.connection();
-                        let current = (connection.at, connection.revision);
-                        if current == last_connection {
+                    StateJob::SetupScan(force) => {
+                        let result =
+                            setup::inspect(&state_store, &UserRegistry, Utc::now().timestamp());
+                        if !force && last_setup.as_ref() == Some(&result) {
                             continue;
                         }
-                        last_connection = current;
-                        Event::Connection(connection)
+                        last_setup = Some(result.clone());
+                        match result {
+                            Ok(overview) => Event::Setup(overview),
+                            Err(error) => Event::SetupError(error),
+                        }
+                    }
+                    StateJob::PrepareBrowser(browser) => {
+                        let result = std::env::current_exe()
+                            .map_err(|e| e.to_string())
+                            .and_then(|exe| {
+                                setup::prepare(&state_store, browser, &exe, &UserRegistry)
+                            })
+                            .and_then(|_| {
+                                setup::inspect(&state_store, &UserRegistry, Utc::now().timestamp())
+                            });
+                        Event::Prepared(result)
+                    }
+                    StateJob::OpenBrowser(browser) => {
+                        Event::BrowserOpened(setup::open_extensions(browser))
                     }
                 };
                 if state_events.send(event).is_err() {
@@ -253,8 +282,13 @@ impl App {
             custom_duration: false,
             locked: false,
             phrase: String::new(),
-            connection: Connection::default(),
             next_connection: Instant::now(),
+            setup: Overview::default(),
+            setup_loaded: false,
+            setup_working: false,
+            setup_browser: Browser::Chrome,
+            setup_message: String::new(),
+            setup_wait_until: None,
             close_requested: false,
             diagnostic: std::env::var_os("WEBSITEBLOCKER_CAPTURE").is_some()
                 || std::env::var_os("WEBSITEBLOCKER_DIAGNOSTICS").is_some(),
@@ -266,6 +300,7 @@ impl App {
             app.tab = match tab {
                 "settings" => Tab::Settings,
                 "rules" => Tab::Rules,
+                "browser" => Tab::Browser,
                 _ => Tab::Focus,
             };
             let _ = path;
@@ -321,6 +356,11 @@ impl App {
                     self.busy = false;
                     match result {
                         Ok(state) => {
+                            if state.revision != self.state.revision {
+                                self.setup.chrome.up_to_date = false;
+                                self.setup.edge.up_to_date = false;
+                                self.next_connection = Instant::now();
+                            }
                             self.state = state;
                             self.ready = true;
                             self.message =
@@ -343,7 +383,42 @@ impl App {
                         Err(e) => self.message = e,
                     }
                 }
-                Event::Connection(connection) => self.connection = connection,
+                Event::Setup(overview) => {
+                    if !self.setup_loaded && !overview.chrome.available && overview.edge.available {
+                        self.setup_browser = Browser::Edge;
+                    }
+                    self.setup_loaded = true;
+                    self.setup = overview;
+                    if self.setup.get(self.setup_browser).connected {
+                        self.setup_wait_until = None;
+                    }
+                }
+                Event::SetupError(error) => {
+                    self.setup_loaded = true;
+                    self.setup_message = error;
+                }
+                Event::Prepared(result) => {
+                    self.setup_working = false;
+                    match result {
+                        Ok(overview) => {
+                            self.setup = overview;
+                            self.setup_loaded = true;
+                            self.setup_message = "Desktop connection prepared. Add the companion in your browser below.".into();
+                            self.setup_wait_until = Some(Instant::now() + Duration::from_secs(120));
+                        }
+                        Err(error) => self.setup_message = error,
+                    }
+                }
+                Event::BrowserOpened(result) => {
+                    self.setup_working = false;
+                    match result {
+                        Ok(()) => {
+                            self.setup_message = "Complete the browser step, then return here. Connection is checked automatically.".into();
+                            self.setup_wait_until = Some(Instant::now() + Duration::from_secs(120));
+                        }
+                        Err(error) => self.setup_message = error,
+                    }
+                }
                 Event::InstallResult(result) => self.install_result = result,
                 Event::Update(result) => {
                     self.update_busy = false;
@@ -378,6 +453,15 @@ impl App {
         let active = self.state.focus.as_ref().is_some_and(|f| f.end > now);
         ui.heading("Make space for your next task.");
         ui.label("Choose a website list and give yourself an uninterrupted stretch.");
+        if self.setup_loaded && !self.setup.connected() {
+            ui.add_space(8.0);
+            ui.horizontal_wrapped(|ui| {
+                ui.label("Your current browser rules have not been confirmed yet.");
+                if active && ui.button("Connect browser").clicked() {
+                    self.tab = Tab::Browser;
+                }
+            });
+        }
         ui.add_space(12.0);
         egui::Frame::new()
             .fill(Color32::WHITE)
@@ -478,12 +562,17 @@ impl App {
                     ui.checkbox(&mut self.locked, "Keep this session locked until it ends");
                     ui.small("A locked session cannot be stopped early and has no breaks.");
                     ui.add_space(4.0);
-                    if primary(ui, format!("Start {}-minute focus", self.minutes)).clicked() {
-                        self.submit(StateJob::Apply(Change::Start {
-                            group_id: self.selected,
-                            minutes: self.minutes,
-                            locked: self.locked,
-                        }));
+                    if self.setup.connected() {
+                        if primary(ui, format!("Start {}-minute focus", self.minutes)).clicked() {
+                            self.submit(StateJob::Apply(Change::Start {
+                                group_id: self.selected,
+                                minutes: self.minutes,
+                                locked: self.locked,
+                            }));
+                        }
+                    } else if primary(ui, "Connect browser to start").clicked() {
+                        self.tab = Tab::Browser;
+                        self.next_connection = Instant::now();
                     }
                 }
             });
@@ -608,9 +697,174 @@ impl App {
         });
     }
 
+    fn setup_job(&mut self, job: StateJob) {
+        if self.jobs.try_send(job).is_ok() {
+            self.setup_working = true;
+        } else {
+            self.setup_message = "The connection worker is busy. Try again shortly.".into();
+        }
+    }
+    fn connection_card(&mut self, ui: &mut egui::Ui) {
+        ui.label(RichText::new("Browser connection").size(19.0).strong());
+        let label = if self.setup.chrome.connected && self.setup.edge.connected {
+            "Chrome and Edge are connected"
+        } else if self.setup.chrome.connected {
+            "Chrome is connected"
+        } else if self.setup.edge.connected {
+            "Edge is connected"
+        } else if self.setup_loaded {
+            "No browser connected yet"
+        } else {
+            "Checking browser connection…"
+        };
+        ui.label(label);
+        ui.small("Blocking works only in browser profiles with the companion enabled.");
+        if primary(
+            ui,
+            if self.setup.connected() {
+                "Manage connection"
+            } else {
+                "Connect browser"
+            },
+        )
+        .clicked()
+        {
+            self.tab = Tab::Browser;
+            self.next_connection = Instant::now();
+        }
+    }
+    fn browser_setup(&mut self, ui: &mut egui::Ui) {
+        if ui.small_button("Back to Settings").clicked() {
+            self.tab = Tab::Settings;
+        }
+        ui.heading("Connect your browser");
+        ui.label("One-time setup for the browser profile you want to use.");
+        ui.horizontal(|ui| {
+            for browser in [Browser::Chrome, Browser::Edge] {
+                if ui
+                    .selectable_value(&mut self.setup_browser, browser, browser.label())
+                    .clicked()
+                {
+                    self.setup_message.clear();
+                    self.next_connection = Instant::now();
+                }
+            }
+        });
+        let browser = self.setup_browser;
+        let status = self.setup.get(browser).clone();
+        if status.connected {
+            ui.add_space(12.0);
+            ui.colored_label(
+                ACCENT,
+                if status.up_to_date {
+                    format!(
+                        "{} is connected. Your current website rules have been applied.",
+                        browser.label()
+                    )
+                } else {
+                    format!(
+                        "{} is connected. Your recent changes are syncing.",
+                        browser.label()
+                    )
+                },
+            );
+            ui.small("You can close this window. The browser keeps your schedules running.");
+            if primary(ui, "Go to Focus").clicked() {
+                self.tab = Tab::Focus;
+            }
+            if !self.setup_message.is_empty() {
+                ui.label(&self.setup_message);
+            }
+            egui::CollapsingHeader::new("Repair or move the app").show(ui, |ui| {
+                if ui
+                    .add_enabled(
+                        !self.setup_working,
+                        egui::Button::new("Prepare connection again"),
+                    )
+                    .clicked()
+                {
+                    self.setup_job(StateJob::PrepareBrowser(browser));
+                }
+            });
+            return;
+        }
+        if !status.available {
+            ui.label(format!(
+                "{} was not found. Install it, then choose Check connection.",
+                browser.label()
+            ));
+        }
+        ui.add_space(8.0);
+        ui.label(RichText::new("1. Prepare the desktop connection").strong());
+        if status.prepared {
+            ui.colored_label(
+                ACCENT,
+                "Ready. The companion files and browser connection are prepared.",
+            );
+        } else {
+            ui.small("WebsiteBlocker prepares the included companion automatically.");
+            if ui
+                .add_enabled(
+                    status.available && !self.setup_working,
+                    egui::Button::new(
+                        RichText::new(format!("Connect {}", browser.label())).color(Color32::WHITE),
+                    )
+                    .fill(ACCENT),
+                )
+                .clicked()
+            {
+                self.setup_job(StateJob::PrepareBrowser(browser));
+                self.next_connection = Instant::now();
+            }
+        }
+        ui.add_space(8.0);
+        ui.label(RichText::new(format!("2. Add the companion in {}", browser.label())).strong());
+        ui.small("Local preview: the companion is not in browser stores yet. This browser step is required once.");
+        ui.add_enabled_ui(status.prepared && !self.setup_working, |ui| {
+            ui.horizontal_wrapped(|ui| {
+                if ui.button(format!("Open {} extensions", browser.label())).clicked() { self.setup_job(StateJob::OpenBrowser(browser)); }
+                if ui.button("Copy companion folder").clicked() {
+                    ui.ctx().copy_text(setup::extension_dir(&Store { dir: self.store_dir.clone() }).display().to_string());
+                    self.setup_message = "Folder copied. Paste it into the folder picker after choosing Load unpacked.".into();
+                }
+            });
+        });
+        ui.label("In the browser: turn on Developer mode, choose Load unpacked, then select the copied companion folder. Already added? Choose Reload on its card.");
+        egui::CollapsingHeader::new("Added an older preview before?").show(ui, |ui| {
+            ui.small("Disable or remove the earlier WebsiteBlocker copy in the browser before adding this companion. Keep only one enabled copy in each profile.");
+        });
+        ui.add_space(8.0);
+        ui.label(RichText::new("3. Verify the connection").strong());
+        ui.small("The companion connects automatically after it is added. This page confirms when your rules are actually applied.");
+        if !status.error.is_empty() {
+            ui.colored_label(Color32::DARK_RED, &status.error);
+        }
+        if self.setup_working {
+            ui.label("Preparing connection…");
+        }
+        if !self.setup_message.is_empty() {
+            ui.label(&self.setup_message);
+        }
+        if ui
+            .add_enabled(!self.setup_working, egui::Button::new("Check connection"))
+            .clicked()
+        {
+            let _ = self.jobs.try_send(StateJob::SetupScan(true));
+            self.setup_wait_until = Some(Instant::now() + Duration::from_secs(120));
+            self.next_connection = Instant::now();
+            self.setup_message =
+                "Waiting for the browser companion. Complete step 2 if it has not been added yet."
+                    .into();
+        }
+    }
+
     fn settings(&mut self, ui: &mut egui::Ui) {
         ui.heading("Settings");
         ui.label(format!("WebsiteBlocker {}", updater::VERSION));
+        ui.add_space(10.0);
+        self.connection_card(ui);
+        ui.add_space(10.0);
+        ui.separator();
         ui.add_space(10.0);
         ui.label(RichText::new("Updates").size(19.0).strong());
         let mut startup = self.state.startup_updates;
@@ -658,22 +912,6 @@ impl App {
         ui.add_space(12.0);
         ui.separator();
         ui.add_space(8.0);
-        ui.label(RichText::new("Browser companion").size(19.0).strong());
-        if let Some(at) = chrono::DateTime::from_timestamp(self.connection.at, 0)
-            .filter(|_| self.connection.at > 0)
-        {
-            ui.label(format!(
-                "Last desktop contact: {} UTC",
-                at.format("%Y-%m-%d %H:%M:%S")
-            ));
-        } else {
-            ui.label("Not connected yet");
-        }
-        ui.small("The extension popup shows which lists are actually blocking and any connection errors.");
-        egui::CollapsingHeader::new("Set up Chrome or Edge").show(ui, |ui| {
-            ui.label("1. Extract the companion ZIP and load its extension folder in your browser.\n2. Copy the extension ID and register the companion using the included setup script.\n3. Open the extension popup and choose Sync with desktop.");
-            ui.small("Full steps: docs/BROWSER-SETUP.md in the companion ZIP. Setup is separate for each browser; no administrator rights are needed.");
-        });
         ui.add_space(12.0);
         ui.separator();
         egui::CollapsingHeader::new("Local data & privacy").show(ui, |ui| {
@@ -686,15 +924,20 @@ impl App {
 
 impl App {
     pub fn capture_ready(&self) -> bool {
-        self.ready && !self.busy
+        self.ready && !self.busy && self.setup_loaded
     }
     pub fn maintenance_deadline(&self) -> Option<Instant> {
-        (self.tab == Tab::Settings).then_some(self.next_connection)
+        Some(self.next_connection)
     }
     pub fn maintenance_tick(&mut self) {
-        if self.tab == Tab::Settings && self.next_connection <= Instant::now() {
-            let _ = self.jobs.try_send(StateJob::Connection);
-            self.next_connection = Instant::now() + Duration::from_secs(30);
+        if self.next_connection <= Instant::now() {
+            let _ = self.jobs.try_send(StateJob::SetupScan(false));
+            let waiting = self.tab == Tab::Browser
+                && self
+                    .setup_wait_until
+                    .is_some_and(|until| until > Instant::now());
+            self.next_connection =
+                Instant::now() + Duration::from_secs(if waiting { 1 } else { 30 });
         }
     }
     pub fn render(&mut self, ctx: &egui::Context) {
@@ -718,7 +961,12 @@ impl App {
                 ui.separator();
                 ui.selectable_value(&mut self.tab, Tab::Focus, "Focus");
                 ui.selectable_value(&mut self.tab, Tab::Rules, "Websites");
-                ui.selectable_value(&mut self.tab, Tab::Settings, "Settings");
+                if ui
+                    .selectable_label(matches!(self.tab, Tab::Settings | Tab::Browser), "Settings")
+                    .clicked()
+                {
+                    self.tab = Tab::Settings;
+                }
             });
             ui.add_space(8.0);
             if let Some(update) = &self.available {
@@ -750,6 +998,7 @@ impl App {
                         Tab::Focus => self.focus(ui),
                         Tab::Rules => self.rules(ui),
                         Tab::Settings => self.settings(ui),
+                        Tab::Browser => self.browser_setup(ui),
                     });
                 });
             });

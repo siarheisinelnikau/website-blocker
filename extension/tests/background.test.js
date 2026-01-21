@@ -14,8 +14,14 @@ test("service worker applies real DNR payloads, keeps a usable cache, and clears
   globalThis.chrome = {
     storage: { local: { async get(keys) { return typeof keys === "string" ? { [keys]: storage[keys] } : Object.fromEntries(keys.map(k => [k, storage[k]])); },
       async set(value) { Object.assign(storage, value); } } },
-    runtime: { id: "fixture", onInstalled: event(), onStartup: event(), onMessage: event(), async sendNativeMessage(host, message) {
-      assert.equal(host, "com.websiteblocker.companion"); assert.equal(message.command, "snapshot");
+    runtime: { id: "pepcehhhdngafeeljmaanapnofkkhbdf", getManifest() { return {version:"0.1.0"}; }, onInstalled: event(), onStartup: event(), onMessage: event(), async sendNativeMessage(host, message) {
+      assert.equal(host, "com.websiteblocker.companion"); if (message.command === "applied") {
+        assert.equal(message.browser, "chrome");
+        assert.equal(message.extension_id, "pepcehhhdngafeeljmaanapnofkkhbdf");
+        if (disconnected) throw new Error("Host not found");
+        return {protocol:1,error:null};
+      }
+      assert.equal(message.command, "snapshot");
       if (disconnected) throw new Error("Host not found");
       return { protocol: 1, policy: structuredClone(policy) };
     } },
