@@ -2,6 +2,7 @@ import { validatePolicy, activeGroups, compileRules, nextBoundary } from "./engi
 
 const api = globalThis.chrome;
 const HOST = "com.websiteblocker.companion";
+const BROWSER = globalThis.navigator?.userAgent?.includes("Edg/") ? "edge" : "chrome";
 let inflight = null;
 let refreshPending = false;
 
@@ -44,6 +45,13 @@ async function update(refresh) {
   }
   if (policy) await api.storage.local.set({ policy });
   const active = activeGroups(policy, now).map(g => g.name);
+  if (refresh && policy) {
+    try {
+      const result = await api.runtime.sendNativeMessage(HOST, { protocol: 1, command: "applied", browser: BROWSER,
+        revision: policy.revision, extension_id: api.runtime.id, version: api.runtime.getManifest().version, error: error || null });
+      if (result.error) throw new Error(result.error);
+    } catch (e) { error = error || `Desktop could not confirm this connection: ${e.message}`; }
+  }
   await api.storage.local.set({ status: { active, error, nativeError, contactedAt, appliedAt: now,
     revision: policy?.revision ?? null, expiresAt: policy?.expires_at ?? 0 } });
   await api.action.setBadgeText({ text: active.length ? String(active.length) : "" });
@@ -75,7 +83,10 @@ async function initialize() {
   await api.alarms.create("sync", { periodInMinutes: 0.5 });
   await sync();
 }
-api.runtime.onInstalled.addListener(initialize);
+api.runtime.onInstalled.addListener(async details => {
+  await initialize();
+  if (details.reason === "install") await api.tabs.create({ url: api.runtime.getURL("welcome.html") });
+});
 api.runtime.onStartup.addListener(initialize);
 api.alarms.onAlarm.addListener(alarm => { void sync(alarm.name === "sync"); });
 api.runtime.onMessage.addListener((message, sender, respond) => {

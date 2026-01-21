@@ -4,9 +4,36 @@
   "version": "0.1.0",
   "minimum_chrome_version": "120",
   "description": "Apply your local WebsiteBlocker focus rules and schedules to website navigations.",
-  "permissions": ["declarativeNetRequest", "storage", "alarms", "nativeMessaging"],
-  "host_permissions": ["http://*/*", "https://*/*"],
-  "background": { "service_worker": "background.js", "type": "module" },
-  "action": { "default_popup": "popup.html", "default_title": "WebsiteBlocker" },
-  "web_accessible_resources": [{ "resources": ["blocked.html", "blocked.js", "style.css"], "matches": ["http://*/*", "https://*/*"] }]
+  "permissions": [
+    "declarativeNetRequest",
+    "storage",
+    "alarms",
+    "nativeMessaging"
+  ],
+  "host_permissions": [
+    "http://*/*",
+    "https://*/*"
+  ],
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "WebsiteBlocker"
+  },
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "blocked.html",
+        "blocked.js",
+        "style.css"
+      ],
+      "matches": [
+        "http://*/*",
+        "https://*/*"
+      ]
+    }
+  ],
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAxnwsGRBP2/pR2du4zdmUmxLUmZBhFfBkGxRiNYuwZckdJsdg6fPIwYpeQC14xNZhJVHjQqryJM81cGno9URf3wM+Uu80240NIUswXOwtQ1OmKlQTd7BiddYOAwqG/jHQnBg+kNVQnbCvG6wl/uUj3FGfdnNA76jwwTH5H6n47wGd8WiJAQA64hUPffzqjDlLWnoeFYzUvgGFn//PzYOk8uEtazCigITm4raWC38ESHW8tP8QCab5QYR0AYEgtxPZzpp3ZXr8oO6OnMG05BhVwwRG92IDemolnEfB6F9bqqN6a1U3+wmPheqRaU185ONCTCIUluhV3mk7X5QvjBZLUQIDAQAB"
 }

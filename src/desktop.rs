@@ -96,7 +96,7 @@ pub fn run(store: Store) -> Result<(), String> {
             let (screen, path) = value
                 .split_once('|')
                 .ok_or("Capture expects screen|absolute.png.")?;
-            if !["focus", "rules", "settings"].contains(&screen)
+            if !["focus", "rules", "settings", "browser"].contains(&screen)
                 || !PathBuf::from(path).is_absolute()
                 || !path.ends_with(".png")
             {

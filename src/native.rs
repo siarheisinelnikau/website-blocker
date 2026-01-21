@@ -9,10 +9,19 @@ use std::io::{Read, Write};
 pub const HOST_NAME: &str = "com.websiteblocker.companion";
 
 #[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-struct Request {
-    protocol: u32,
-    command: String,
+#[serde(tag = "command", deny_unknown_fields)]
+enum Request {
+    #[serde(rename = "snapshot")]
+    Snapshot { protocol: u32 },
+    #[serde(rename = "applied")]
+    Applied {
+        protocol: u32,
+        browser: crate::setup::Browser,
+        revision: u64,
+        extension_id: String,
+        version: String,
+        error: Option<String>,
+    },
 }
 
 #[derive(Serialize)]
@@ -41,22 +50,45 @@ pub fn serve(mut input: impl Read, mut output: impl Write, store: &Store) -> Res
     input.read_exact(&mut body).map_err(|e| e.to_string())?;
     let result = (|| {
         let request: Request = serde_json::from_slice(&body).map_err(|e| e.to_string())?;
-        if request.protocol != 1 || request.command != "snapshot" {
-            return Err("Unsupported companion protocol or command.".into());
+        match request {
+            Request::Snapshot { protocol: 1 } => {
+                let state = store.load()?;
+                let now = Utc::now();
+                let policy = state.policy(now);
+                store.mark_connection(Connection {
+                    at: now.timestamp(),
+                    revision: state.revision,
+                })?;
+                Ok(Some(policy))
+            }
+            Request::Applied {
+                protocol: 1,
+                browser,
+                revision,
+                extension_id,
+                version,
+                error,
+            } => {
+                crate::setup::record_applied(
+                    store,
+                    browser,
+                    &crate::setup::Applied {
+                        at: Utc::now().timestamp(),
+                        revision,
+                        extension_id,
+                        version,
+                        error,
+                    },
+                )?;
+                Ok(None)
+            }
+            _ => Err("Unsupported companion protocol.".into()),
         }
-        let state = store.load()?;
-        let now = Utc::now();
-        let policy = state.policy(now);
-        store.mark_connection(Connection {
-            at: now.timestamp(),
-            revision: state.revision,
-        })?;
-        Ok(policy)
     })();
     let response = match result {
         Ok(policy) => Response {
             protocol: 1,
-            policy: Some(policy),
+            policy,
             error: None,
         },
         Err(error) => Response {
