@@ -41,6 +41,7 @@ assert all(sample["cpu_seconds"] >= 0 for sample in samples.values()), "Process 
 assert samples["minimized_end"]["window_minimized"] is True
 assert samples["restored_settled"]["window_minimized"] is False
 assert samples["hidden_end"]["window_visible"] is False
+assert samples["restored_settled"]["counters"]["presents"] > samples["minimized_end"]["counters"]["presents"], "Restore did not present the retained frame"
 for label, start, end in (
     ("Visible idle", "settled_start", "visible_idle_end"),
     ("Minimized", "visible_idle_end", "minimized_end"),
@@ -52,10 +53,13 @@ for label, start, end in (
     cpu = 100 * (after["cpu_seconds"] - before["cpu_seconds"]) / duration
     delta = {name: after["counters"][name] - before["counters"][name]
              for name in ("layouts", "rasters", "presents")}
-    assert all(value == 0 for value in delta.values()), (label, delta)
+    assert delta["layouts"] == 0 and delta["rasters"] == 0, (label, delta)
+    blits = after["counters"]["cached_blits"] - before["counters"]["cached_blits"]
+    assert delta["presents"] == blits, (label, delta, blits)
+    ignored = after["counters"].get("diagnostic_input_ignored", 0) - before["counters"].get("diagnostic_input_ignored", 0)
     assert cpu < 5, (label, cpu)
     print(f"{label}: {duration:.2f}s; CPU {cpu:.3f}% of one core "
-          f"({cpu / result['logical_cores']:.4f}% machine); {delta}")
+          f"({cpu / result['logical_cores']:.4f}% machine); {delta}; cached OS blits={blits}; ignored external input={ignored}")
 print("Backend:", result["backend"])
 print("Observed modules:", result["loaded_graphics_modules"])
 print("The process exited. OS input, perceptual smoothness and GPU/compositor telemetry are separate checks.")
