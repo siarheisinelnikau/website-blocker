@@ -912,8 +912,6 @@ impl App {
         ui.add_space(12.0);
         ui.separator();
         ui.add_space(8.0);
-        ui.add_space(12.0);
-        ui.separator();
         egui::CollapsingHeader::new("Local data & privacy").show(ui, |ui| {
             ui.label(format!("Settings: {}", self.store_dir.display()));
             ui.label("Browsing history and page content are not recorded. Update checks contact GitHub. Rules stay local.");

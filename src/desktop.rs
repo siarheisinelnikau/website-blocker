@@ -28,6 +28,8 @@ struct Counters {
     presents: u64,
     cached_blits: u64,
     hidden_redraws_skipped: u64,
+    unchanged_scenes_skipped: u64,
+    diagnostic_input_ignored: u64,
     layout_max_ms: f64,
     raster_max_ms: f64,
     present_max_ms: f64,
@@ -63,6 +65,10 @@ struct View {
     bitmap: Vec<[u8; 4]>,
     size: [u32; 2],
     hidden: bool,
+    needs_present: bool,
+    last_shapes: Vec<egui::epaint::ClippedShape>,
+    last_pixels_per_point: f32,
+    rendered_size: [u32; 2],
 }
 
 struct Host {
@@ -190,6 +196,7 @@ impl Host {
             *destination = u32::from_le_bytes(*pixel) & 0x00ff_ffff;
         }
         buffer.present().map_err(|e| e.to_string())?;
+        view.needs_present = false;
         self.report.counters.presents += 1;
         self.report.counters.present_max_ms = self
             .report
@@ -223,6 +230,21 @@ impl Host {
         if self.report.counters.layouts < 2 {
             trace(&self.diagnostic, "draw: layout complete");
         }
+        if self.report.counters.layouts < 8 {
+            trace(
+                &self.diagnostic,
+                &format!(
+                    "frame {}: passes={}, discard={:?}, repaint={:?}",
+                    self.report.counters.layouts,
+                    output.platform_output.num_completed_passes,
+                    output.platform_output.request_discard_reasons,
+                    output
+                        .viewport_output
+                        .get(&egui::ViewportId::ROOT)
+                        .map(|v| v.repaint_delay)
+                ),
+            );
+        }
         self.report.counters.layouts += 1;
         self.report.counters.layout_max_ms = self
             .report
@@ -248,24 +270,57 @@ impl Host {
         let [width, height] = view.size;
         view.bitmap
             .resize(width as usize * height as usize, [243, 246, 244, 255]);
-        let primitives = self.ctx.tessellate(output.shapes, output.pixels_per_point);
-        let raster_start = Instant::now();
-        view.renderer.render(
-            &mut BufferMutRef::new(&mut view.bitmap, width as usize, height as usize),
-            &primitives,
-            &output.textures_delta,
-            output.pixels_per_point,
-        );
-        if self.report.counters.rasters < 2 {
-            trace(&self.diagnostic, "draw: raster complete");
+        let changed = view.last_shapes != output.shapes
+            || view.last_pixels_per_point != output.pixels_per_point
+            || view.rendered_size != view.size
+            || !output.textures_delta.is_empty();
+        if changed {
+            view.last_shapes = output.shapes.clone();
+            view.last_pixels_per_point = output.pixels_per_point;
+            view.rendered_size = view.size;
+            let primitives = self.ctx.tessellate(output.shapes, output.pixels_per_point);
+            let raster_start = Instant::now();
+            view.renderer.render(
+                &mut BufferMutRef::new(&mut view.bitmap, width as usize, height as usize),
+                &primitives,
+                &output.textures_delta,
+                output.pixels_per_point,
+            );
+            self.report.counters.rasters += 1;
+            self.report.counters.raster_max_ms = self
+                .report
+                .counters
+                .raster_max_ms
+                .max(raster_start.elapsed().as_secs_f64() * 1000.0);
+            self.present()?;
+        } else if view.needs_present {
+            self.report.counters.cached_blits += 1;
+            self.present()?;
+        } else {
+            self.report.counters.unchanged_scenes_skipped += 1;
         }
-        self.report.counters.rasters += 1;
-        self.report.counters.raster_max_ms = self
-            .report
-            .counters
-            .raster_max_ms
-            .max(raster_start.elapsed().as_secs_f64() * 1000.0);
-        self.present()?;
+        if self.diagnostic.is_some() && self.report.counters.layouts >= 40 {
+            if let Some(path) = &self.diagnostic {
+                let view = self.view.as_ref().unwrap();
+                let rgba: Vec<_> = view
+                    .bitmap
+                    .iter()
+                    .flat_map(|p| [p[2], p[1], p[0], p[3]])
+                    .collect();
+                let _ = image::save_buffer(
+                    path.with_extension("spin.png"),
+                    &rgba,
+                    width,
+                    height,
+                    image::ColorType::Rgba8,
+                );
+            }
+            return Err(
+                "Diagnostic stopped: continuous scene construction exceeded the frame bound."
+                    .into(),
+            );
+        }
+
         if self.report.counters.presents < 3 {
             trace(&self.diagnostic, "draw: present complete");
         }
@@ -326,6 +381,7 @@ impl Host {
                 }
                 2 => {
                     view.window.set_minimized(false);
+                    view.needs_present = true;
                     view.hidden = false;
                     self.dirty = true;
                     view.window.request_redraw();
@@ -350,15 +406,17 @@ impl ApplicationHandler<Wake> for Host {
         }
         trace(&self.diagnostic, "resumed: create window");
         let result = (|| -> Result<View, String> {
+            let mut attributes = Window::default_attributes()
+                .with_title("WebsiteBlocker")
+                .with_active(!self.app.diagnostic)
+                .with_inner_size(winit::dpi::LogicalSize::new(880.0, 680.0))
+                .with_min_inner_size(winit::dpi::LogicalSize::new(740.0, 580.0));
+            if self.app.diagnostic {
+                attributes = attributes.with_position(winit::dpi::LogicalPosition::new(24.0, 24.0));
+            }
             let window = Rc::new(
                 event_loop
-                    .create_window(
-                        Window::default_attributes()
-                            .with_title("WebsiteBlocker")
-                            .with_active(!self.app.diagnostic)
-                            .with_inner_size(winit::dpi::LogicalSize::new(880.0, 680.0))
-                            .with_min_inner_size(winit::dpi::LogicalSize::new(740.0, 580.0)),
-                    )
+                    .create_window(attributes)
                     .map_err(|e| e.to_string())?,
             );
             trace(&self.diagnostic, "window created: create GDI surface");
@@ -391,6 +449,10 @@ impl ApplicationHandler<Wake> for Host {
                 bitmap: vec![],
                 size: [size.width, size.height],
                 hidden: false,
+                needs_present: true,
+                last_shapes: vec![],
+                last_pixels_per_point: 0.0,
+                rendered_size: [0, 0],
             })
         })();
         match result {
@@ -408,6 +470,16 @@ impl ApplicationHandler<Wake> for Host {
             return;
         }
         let Wake::Repaint { at, pass } = event;
+        if self.report.counters.layouts < 8 {
+            trace(
+                &self.diagnostic,
+                &format!(
+                    "wake: pass={pass}, current={}, in={:?}",
+                    self.ctx.cumulative_pass_nr(),
+                    at.saturating_duration_since(Instant::now())
+                ),
+            );
+        }
         if self.ctx.cumulative_pass_nr() <= pass + 1 {
             if self.visible() {
                 self.repaint = Some(self.repaint.map_or(at, |old| old.min(at)));
@@ -423,6 +495,22 @@ impl ApplicationHandler<Wake> for Host {
         if id != view.window.id() {
             return;
         }
+        if self.app.diagnostic
+            && matches!(
+                event,
+                WindowEvent::CursorEntered { .. }
+                    | WindowEvent::CursorLeft { .. }
+                    | WindowEvent::CursorMoved { .. }
+                    | WindowEvent::MouseInput { .. }
+                    | WindowEvent::MouseWheel { .. }
+                    | WindowEvent::KeyboardInput { .. }
+                    | WindowEvent::Ime(_)
+                    | WindowEvent::Touch(_)
+            )
+        {
+            self.report.counters.diagnostic_input_ignored += 1;
+            return;
+        }
         if matches!(event, WindowEvent::CloseRequested) {
             event_loop.exit();
             return;
@@ -436,12 +524,16 @@ impl ApplicationHandler<Wake> for Host {
         match &event {
             WindowEvent::Occluded(value) => {
                 view.hidden = *value;
+                if !*value {
+                    view.needs_present = true;
+                }
                 if *value {
                     self.repaint = None;
                 }
             }
             WindowEvent::Resized(size) => {
                 view.size = [size.width, size.height];
+                view.needs_present = true;
                 view.hidden = size.width == 0
                     || size.height == 0
                     || view.window.is_minimized().unwrap_or(false);
@@ -458,6 +550,9 @@ impl ApplicationHandler<Wake> for Host {
             _ => {}
         }
         if view.input.on_window_event(&view.window, &event).repaint {
+            if self.report.counters.layouts < 8 {
+                trace(&self.diagnostic, &format!("window invalidation: {event:?}"));
+            }
             self.invalidate();
         }
     }
