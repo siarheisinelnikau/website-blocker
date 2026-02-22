@@ -4,7 +4,7 @@
 
 Work only in E:/work/github/website-blocker. WebsiteBlocker is a Windows-first website focus manager with a Chromium companion; see TASK.md for the original specification. Preserve existing settings and normal browser profiles. Other projects under E:/work/github are independent: do not edit them, parent configuration, or shared build output. Do not create additional chats or subagents.
 
-The user authorized GUI/extension verification and real screenshots, then reported severe lag and asked to stop computer use. The current phase is source repair and design review without computer-use/CUA or injected OS input. Earlier Chrome/Edge tests used disposable profiles and restored temporary native registrations. No publishing or remote Git operations are authorized.
+The user authorized GUI/extension verification and real screenshots, then reported severe lag and asked to stop computer use. The current phase is source repair and design review without computer-use/CUA or injected OS input. Earlier Chrome/Edge tests used disposable profiles and restored temporary native registrations. No publishing or remote Git operations are authorized. The connection-wizard task additionally authorizes embedded companion preparation and per-user native registration behind explicit GUI actions; normal browser preferences/profiles must not be edited. Use isolated headless browser fixtures for live backend checks and restore temporary registrations.
 
 ## Required skills and launch gate
 

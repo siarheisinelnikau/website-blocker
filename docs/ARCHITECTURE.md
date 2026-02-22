@@ -6,6 +6,7 @@
 Desktop UI -> bounded settings worker -> validated state.json (atomic replacement)
 Browser alarm / Sync -> EXE native host -> read-only policy snapshot
 Snapshot -> local extension cache -> Intl schedule evaluation -> Chromium dynamic rules
+Applied-rule report -> per-browser connection status -> in-app setup confirmation
 HTTP(S) top-level navigation -> higher-priority allow OR redirect -> local block page
 ```
 
@@ -21,7 +22,7 @@ A winit event loop uses Wait/WaitUntil and no Poll. Input, changed worker data, 
 
 The Win32 winit 0.30 loop may wait immediately after AboutToWait, before observing an exit requested from that callback. The host expires that one final wait and releases the GDI surface/window during exiting. Diagnostic and capture modes have internal limits and independent external timeouts. They are not consumer settings.
 
-`WEBSITEBLOCKER_DATA_DIR` selects an explicit absolute isolated data directory for the desktop and native host. `WEBSITEBLOCKER_CAPTURE=focus|ABSOLUTE.png` (or rules/settings) selects a real route, waits for settings readiness and three software-rendered frames, atomically writes the CPU bitmap as PNG and exits. Unknown routes, invalid output paths and failures return nonzero. Capture/diagnostic modes require an explicit data directory and suppress startup update checks. `WEBSITEBLOCKER_DIAGNOSTICS` writes opt-in aggregate counters, phase CPU samples and targeted module observations during a bounded visible/minimized/restored/hidden test. No per-frame production logging or automation server is included.
+`WEBSITEBLOCKER_DATA_DIR` selects an explicit absolute isolated data directory for the desktop and native host. `WEBSITEBLOCKER_CAPTURE=focus|ABSOLUTE.png` (or rules/settings/browser) selects a real route, waits for settings/browser-status readiness and three bounded UI passes, atomically writes the CPU bitmap as PNG and exits. Unknown routes, invalid output paths and failures return nonzero. Capture/diagnostic modes require an explicit data directory and suppress startup update checks. `WEBSITEBLOCKER_DIAGNOSTICS` writes opt-in aggregate counters, phase CPU samples and targeted module observations during a bounded visible/minimized/restored/hidden test. No per-frame production logging or automation server is included.
 
 ## Rules and schedules
 
@@ -37,9 +38,17 @@ All allow patterns have priority 100 and all redirects priority 1. Allowlists ar
 
 All runtime data is under the user's WebsiteBlocker directory. State files are bounded to 1 MiB, validated on read, and never overwritten on parse/schema failure. A separate file lock serializes reads/writes; acquisition fails promptly rather than blocking a UI worker forever. Rule saves include their base revision to reject stale editors. Writes use a same-directory temporary file, flush and atomic replacement. Empty initial settings are loaded as an inactive timer-only example list. Tests use temporary fixture directories under `.test-output/`; real `%LOCALAPPDATA%` is never touched by tests.
 
-Native messaging uses native-endian 32-bit length framing, bounded to 4 KiB input and less than 1 MiB output. Only `{ "protocol": 1, "command": "snapshot" }` is accepted, with no unknown fields. Browser-side code cannot start/stop focus or mutate desktop rules. The host sends no logs on stdout, processes one request and exits. Browser registration restricts the allowed extension origin. There is no password, hidden API, privileged service or secret stored in the extension. Any same-user software that can modify the state directory is outside the trust boundary.
+Native messaging uses native-endian 32-bit framing, bounded to 4 KiB input and less than 1 MiB output. Protocol 1 accepts the legacy snapshot command plus a strictly typed applied-status report (browser, revision, fixed extension ID, version, bounded error). Unknown fields/commands and browser-side attempts to stop focus remain rejected. Applied reports cannot modify rule/focus configuration. They are written only after the extension successfully updates DNR, or carry an explicit error. Current-rule confirmation requires a recent report with the saved revision; transport connection and pending rule synchronization are separate UI states. This is a cooperative local status mechanism, not tamper-resistant attestation.
 
-The desktop handshake file records request time/revision, not browsing activity or proof of rule application. The extension stores a policy snapshot and compact applied-status/error record. Cache lifetime is eight days from the last successful native request. Focus end times are retained precisely; disconnecting the desktop does not extend a timer. Expired caches clear DNR rules to prevent indefinite stale blocking. Browser status reports connection failures while a still-valid cache continues.
+## In-app browser setup
+
+The Settings/Focus action opens one coherent connection wizard. The EXE embeds a fixed list of companion files using include_bytes; no network download or external extraction utility is involved. An explicit Connect action writes only managed local files and the exact current-user native-host default value through Win32 registry APIs. It never runs PowerShell, changes browser preferences/policies, enables Developer mode or loads an extension silently. File writes are atomic and repeatable. Existing valid origins in app-owned manifests are retained; foreign registrations are preserved with a clear error. A manifest public key makes preview IDs stable and removes manual ID entry.
+
+A bounded worker handles preparation, status inspection and explicit browser launching; no disk/registry work is performed by the paint callback. While setup waits, it reads status about once a second for at most two minutes; stable status/errors do not publish repaint events. Otherwise inspection is every 30 seconds while visible. Hidden windows still perform no UI rendering. Diagnostic/capture fixtures ignore real keyboard/mouse input to prevent accidental connection actions, and count ignored input separately. Normal mode continues processing input; it skips raster/present when shapes, dimensions, scale and texture deltas show the scene is unchanged. Native expose/restore still blits the retained bitmap.
+
+The companion's install welcome page initiates a sync and displays connection success/failure. Chrome/Edge browser consent and unpublished-extension loading remain explicit browser steps. A future store path needs a real published listing and identity; none is invented. Production setup uses no DevTools flags; those exist only in the isolated developer smoke driver.
+
+The legacy global handshake file remains for protocol compatibility. Per-browser applied records are stored under connections/. Native requests are short-lived and have no GUI. The extension stores a snapshot and compact status, with an eight-day maximum cache lifetime. Focus end times do not extend on disconnect. Expired policies clear browser rules and report an error.
 
 ## Updates and distribution
 

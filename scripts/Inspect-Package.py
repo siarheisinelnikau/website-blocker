@@ -1,6 +1,7 @@
 """Inspect packaged files without loading an executable or changing the system."""
 from pathlib import Path
 import hashlib
+import base64
 import json
 import struct
 import zipfile
@@ -54,11 +55,15 @@ assert not any(name.lower().startswith(("opengl", "d3d", "dxgi", "vulkan")) for 
 with zipfile.ZipFile(dist / zip_name) as archive:
     assert archive.testzip() is None
     names = {name.replace("\\", "/") for name in archive.namelist()}
-    for required in ("extension/manifest.json", "extension/background.js", "extension/engine.js", "extension/blocked.html",
-                     "scripts/Register-NativeHost.ps1", "scripts/Unregister-NativeHost.ps1", "docs/BROWSER-SETUP.md", "README.md", "LICENSE"):
+    for required in ("extension/manifest.json", "extension/background.js", "extension/engine.js", "extension/blocked.html", "extension/welcome.html", "extension/welcome.js", "extension/identity.txt",
+                     "scripts/Register-NativeHost.ps1", "scripts/Unregister-NativeHost.ps1", "docs/BROWSER-SETUP.md", "README.md", "LICENSE",
+                     "docs/images/focus.png", "docs/images/rules.png", "docs/images/settings.png", "docs/images/browser.png"):
         assert required in names, f"Missing companion file: {required}"
     extension = json.loads(archive.read("extension/manifest.json"))
     assert extension["version"] == version
+    public_key = base64.b64decode(extension["key"], validate=True)
+    identity = "".join(chr(97 + nibble) for byte in hashlib.sha256(public_key).digest()[:16] for nibble in (byte >> 4, byte & 15))
+    assert archive.read("extension/identity.txt").decode().strip() == identity
 
 print(f"Verified {exe_name}: {len(data):,} bytes, Windows x64 GUI, static MSVC CRT.")
 print(f"Verified {zip_name}: required setup/extension files and ZIP integrity.")
