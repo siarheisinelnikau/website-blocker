@@ -12,6 +12,12 @@ First implementation of a local website focus manager with a Chromium companion.
 - Background startup update checks with an opt-out, manual checks, verified download progress and a portable replacement/restart helper for future compatible GitHub releases.
 - Offline Rust/JavaScript fixture tests, Windows checks and local packaging scripts.
 
+## Browser connection
+
+- Added Settings → Connect browser with Chrome/Edge selection, automatic embedded-companion extraction and per-user native registration. No consumer PowerShell or manual extension-ID/configuration entry is required.
+- Added stable preview identity, welcome-page sync and verification of actually applied browser rules. Focus setup routes unconnected users to the wizard.
+- Verified the same setup backend and managed embedded extension in headless Chrome/Edge fixtures. The unpublished preview still requires the browser's Developer mode/Load unpacked step; a store listing is not published.
+
 ## Improved
 
 - Replaced the desktop OpenGL renderer with CPU rasterization and Win32 GDI, and stopped periodic rendering of unchanged or hidden windows. Bounded diagnostics check actual frame counters and process CPU.
@@ -21,7 +27,7 @@ First implementation of a local website focus manager with a Chromium companion.
 
 ## Downloads and requirements
 
-Planned Windows x64 standalone asset: `WebsiteBlocker-v0.1.0.exe`. Also provide `WebsiteBlocker-Companion-v0.1.0.zip` and `checksums.txt`. The EXE and unpacked extension require explicit manual connection setup. Builds are unsigned. No installer, extension store listing or release is published yet.
+Planned Windows x64 standalone asset: `WebsiteBlocker-v0.1.0.exe`. Also provide `WebsiteBlocker-Companion-v0.1.0.zip` and `checksums.txt`. The EXE includes the companion and its connection wizard; the preview browser installation/consent step remains explicit. Builds are unsigned. No installer, extension store listing or release is published yet.
 
 ## Known limitations
 

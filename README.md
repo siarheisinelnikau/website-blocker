@@ -12,15 +12,19 @@ A local, voluntary focus tool for websites. Manage website lists, recurring sche
 - Recurring weekday schedules in named IANA timezones, with overnight ranges and daylight-saving transitions handled by the browser's `Intl` database.
 - Five-minute breaks, at most once per 30 minutes, requiring the phrase `TAKE A BREAK`. Ending a flexible session requires `END FOCUS`; scheduled blocks continue independently.
 - A clear browser block page, extension popup with applied rule status and connection errors, and per-user native messaging without a local web server.
+- **Settings → Connect browser** prepares the embedded companion and native registration. No PowerShell, JSON/registry editing or extension-ID entry is required. The wizard confirms rules were actually applied before reporting readiness.
 - Local JSON settings with validation, atomic replacement, bounded reads, writer locking and stale-edit protection. Browsing history and requested URLs are not stored.
 - Settings → Updates shows the installed version, manual **Check for updates**, a persistent startup-check toggle (on by default), and user-initiated **Download and install** with progress, SHA-256 checking and a restart helper. Updates require an official compatible asset and `checksums.txt`; unavailable releases are reported truthfully.
 
-## Try it later on a desktop
+## Connect and use
 
-1. Build/package locally using the commands below. Keep `WebsiteBlocker-v0.1.0.exe` in a stable, user-writable folder. Extract the companion ZIP into another stable folder.
-2. Follow [browser setup](docs/BROWSER-SETUP.md) to load the extension and explicitly register its native host for Chrome or Edge. This step changes one per-user registry entry and is not performed by the app or build.
-3. Open the EXE. Edit **Websites**, save, and use the extension popup to confirm a successful sync. The initial example list is timer-only and does not block anything until a session starts or a schedule is saved.
-4. Start a short flexible session on a test domain first. Navigation matching requires the extension to be enabled in that browser profile.
+1. Keep `WebsiteBlocker-v0.1.0.exe` in a permanent folder and open it. The browser companion is embedded; downloading/extracting a separate ZIP is no longer required.
+2. Choose **Connect browser** from Focus or Settings, select Chrome or Edge, then **Connect Chrome/Edge**. The app prepares the companion files and per-user native registration automatically.
+3. In the same wizard, choose **Open Chrome/Edge extensions** and **Copy companion folder**. For this unpublished local preview, turn on **Developer mode** in that browser page, select **Load unpacked**, and paste/select the copied folder. No command, extension ID or configuration-file edit is needed.
+4. The companion opens a welcome page and connects automatically. WebsiteBlocker confirms when current rules are applied. Repeat for another browser/profile if needed.
+5. Edit **Websites**, save, then start a short flexible focus session. Before a browser is connected, the main action takes you to setup instead of starting an ineffective session.
+
+**Preview distribution limit:** the companion is not published in Chrome Web Store or Edge Add-ons yet. The browser installation/consent step cannot be silently completed by the desktop app; Chrome on Windows requires store distribution for ordinary external installation. The app does not change browser preferences, use policies, enable Developer mode or install an extension without the browser step. See [browser setup and troubleshooting](docs/BROWSER-SETUP.md).
 
 Example pattern list:
 
@@ -56,7 +60,7 @@ dist/WebsiteBlocker-Companion-v0.1.0.zip
 dist/checksums.txt
 ```
 
-The single executable contains both the desktop app and its native messaging host. Browser extension files and the explicit registration script are a necessary exception to an EXE-only distribution. Source is also portable in parts, but only Windows x64 packaging is currently provided. Firefox is a future port, not a supported browser in this release.
+The single executable contains the desktop app, native host and companion source. The wizard extracts the extension to its managed local-data folder; Chromium still loads it separately. The companion ZIP is optional for legacy/developer distribution. Only Windows x64 packaging is provided. Firefox is a future port, not supported in this release.
 
 ## Limits and privacy
 
@@ -74,13 +78,15 @@ Real client-area captures from the application's CPU/GDI renderer, using disposa
 
 ![Website list editor with schedules and allowed-site sections](docs/images/rules.png)
 
-![Settings with startup updates and browser companion setup](docs/images/settings.png)
+![Settings with the browser connection action and startup update preference](docs/images/settings.png)
+
+![In-app Chrome and Edge connection wizard](docs/images/browser.png)
 
 For a bounded developer capture after applying the rendering gate:
 
 ```powershell
 python scripts/Check-Rendering.py           # 16.5-second isolated diagnostic, then exits
-python scripts/Capture-Readme.py            # three real renderer captures, each exits
+python scripts/Capture-Readme.py            # four real renderer captures, each exits
 ```
 
 These are explicit GUI diagnostic commands, separate from the noninteractive build checks. The diagnostic reports actual layout/raster/present counts and CPU time. It does not certify OS input, accessibility traversal or subjective smoothness.

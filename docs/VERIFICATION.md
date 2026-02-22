@@ -2,7 +2,22 @@
 
 Date: 2026-10-31 (Europe/Minsk). All work used this repository, isolated artificial settings and at most two Cargo jobs. Nothing was published; no remote Git operations occurred. Normal browser profiles, user data, hosts/DNS/firewall settings and drivers were not changed.
 
-## Current build and automated checks
+## Connection-wizard follow-up
+
+The current preview includes Settings/Focus → Connect browser. The EXE embeds the companion, extracts it into a managed directory and registers the native host through Rust/Win32 APIs after an explicit user action. Users do not need PowerShell, an extension ID, or JSON/registry editing. An unpublished Windows Chrome extension still needs Developer mode/Load unpacked in the browser; the wizard opens that page, copies the folder path and verifies applied rules. No store listing or silent installation is claimed.
+
+- Current noninteractive checks passed: formatting, all-target Clippy with `-D warnings`, **16 Rust tests** and **7 Node tests**. Setup tests cover fixed-key identity, exact embedded files, idempotent per-browser preparation, preservation of rules and foreign registrations, failure handling and fresh/current applied-rule reports.
+- **Chrome 156.0.8078.48 and Edge 156.0.4314.50 each passed 15 headless live checks** using the actual distributable EXE and managed embedded companion. The additional check calls the same Rust registration/preparation backend as the GUI, then calls its inspection path to confirm readiness after real DNR application. Per-user native values were backed up/restored and normal profiles were not used. No computer-use/CUA or injected OS input was used.
+- Four real CPU-renderer client-area PNGs (880 × 680) were recaptured and inspected: Focus, Websites, Settings and the connection wizard. Each capture exited; README links the actual files. Native file-picker/browser-consent interactions remain a user/browser step and were not driven through desktop automation.
+- The latest packaged EXE is **7,432,704 bytes**. Its native protocol and embedded extraction were exercised in the browser tests; later changes only affected the GUI/presenter and diagnostics.
+
+Final rendering diagnostic: PID 44088, actual distributable EXE, CPU software renderer → Win32 GDI, 20 logical cores. The running module check found gdi32.dll and none of the selected OpenGL/D3D/DXGI/Vulkan modules. The 5-second visible-idle, 2-second minimized, 3-second restored-idle and 2-second hidden intervals each had **0 new layout/raster/present and no measurable process CPU-time increase**. There were no cached OS exposure blits or ignored external input events within these final intervals. Restore explicitly presented the retained bitmap. The process exited normally.
+
+An intermediate diagnostic had 857 layouts/rasters/presents during a five-second sample. A bounded trace showed incoming cursor events separated by frames with no requested repaint; that sample was not clean idle. Normal rendering now skips raster/present when scene/scale/size/textures are unchanged while still processing input, and retains native expose/restore blits. Diagnostic/capture mode ignores real user input to protect disposable fixtures and counts it separately; the final intervals had zero such events. The diagnostic frame bound prevents continuing an unexpected redraw storm. These checks do not certify normal pointer/scroll latency, accessibility, high DPI or the user's subjective smoothness.
+
+The remaining manual/release checks below still apply. The older baseline is retained for history and does not describe the latest connection workflow.
+
+## Previous rendering baseline (historical)
 
 | Check | Result |
 | --- | --- |

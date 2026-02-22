@@ -9,12 +9,16 @@ import { createServer } from "node:http";
 
 const root = resolve(fileURLToPath(new URL("..", import.meta.url)));
 const browser = process.argv[2];
+const headless = process.argv.includes("--headless");
+const managed = process.argv.includes("--managed");
 assert.ok(["Chrome", "Edge"].includes(browser), "Usage: node scripts/Browser-Smoke.mjs Chrome|Edge");
 const executable = browser === "Chrome" ? "C:/Program Files/Google/Chrome/Application/chrome.exe" : "C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe";
 const output = join(root, ".test-output", `live-${browser.toLowerCase()}`);
 const dataDir = join(output, "data");
 mkdirSync(dataDir, { recursive: true });
-const backup = join(output, "native-registry-backup.json"), manifest = join(output, "native-host.json");
+const backup = join(output, "native-registry-backup.json");
+const manifest = managed ? join(dataDir, "native", `${browser}.json`) : join(output, "native-host.json");
+const bundle = managed ? join(dataDir, "browser-companion", "extension") : join(root, "extension");
 const hostExe = resolve(process.env.WEBSITEBLOCKER_TEST_EXE || join(root, "dist/WebsiteBlocker-v0.1.0.exe"));
 const hostName = "com.websiteblocker.companion";
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
@@ -39,12 +43,12 @@ const server = createServer((req, res) => {
 });
 await new Promise(resolve => server.listen(0, "127.0.0.1", resolve));
 const port = server.address().port;
-const profile = join(output, browser === "Edge" ? `profile-${Date.now()}` : "profile");
+const profile = join(output, `profile-${Date.now()}`);
 const transportFlags = browser === "Edge"
-  ? ["--remote-debugging-port=0", `--load-extension=${join(root, "extension")}`]
+  ? ["--remote-debugging-port=0"]
   : ["--remote-debugging-pipe"];
 const processHandle = spawn(executable, [
-  `--user-data-dir=${profile}`, ...transportFlags, "--enable-unsafe-extension-debugging",
+  `--user-data-dir=${profile}`, ...transportFlags, ...(headless ? ["--headless=new", "--disable-gpu"] : []), "--enable-unsafe-extension-debugging",
   "--no-first-run", "--no-default-browser-check", "--disable-background-networking", "--disable-sync",
   "--window-size=1100,800", "--host-resolver-rules=MAP *.websiteblocker.test 127.0.0.1", "about:blank"
 ], { env: { ...process.env, WEBSITEBLOCKER_DATA_DIR: dataDir }, stdio: ["ignore", "ignore", "pipe", "pipe", "pipe"] });
@@ -107,10 +111,17 @@ let registered = false;
 try {
   await connect();
   const version = await send("Browser.getVersion"); console.log(version.product);
-  const { id: extensionId } = await send("Extensions.loadUnpacked", { path: join(root, "extension") });
-  writeFileSync(manifest, JSON.stringify({ name: hostName, description: "Temporary WebsiteBlocker browser test",
-    path: hostExe, type: "stdio", allowed_origins: [`chrome-extension://${extensionId}/`] }));
-  registered = true; nativeRegistration("Register");
+  if (managed) {
+    registered = true; nativeRegistration("Backup");
+    const helper = join(root, "target", "x86_64-pc-windows-msvc", "release", "examples", "prepare-connection.exe");
+    execFileSync(helper, [browser, dataDir, hostExe], {encoding:"utf8",windowsHide:true});
+  }
+  const { id: extensionId } = await send("Extensions.loadUnpacked", { path: bundle });
+  if (!managed) {
+    writeFileSync(manifest, JSON.stringify({ name: hostName, description: "Temporary WebsiteBlocker browser test",
+      path: hostExe, type: "stdio", allowed_origins: [`chrome-extension://${extensionId}/`] }));
+    registered = true; nativeRegistration("Register");
+  }
   const popup = await page(`chrome-extension://${extensionId}/popup.html`);
   const sync = async () => {
     await evaluate(popup.sessionId, "chrome.runtime.sendMessage({command:'sync'})");
@@ -118,6 +129,14 @@ try {
   };
   let current = await sync(); assert.equal(current.status.error, ""); assert.equal(current.status.revision, state.revision);
   passed("real EXE native messaging protocol and isolated state sync without a desktop window");
+  if (managed) {
+    const ready = JSON.parse(readFileSync(join(dataDir,"connections",`${browser.toLowerCase()}.json`)));
+    assert.equal(ready.extension_id, extensionId); assert.equal(ready.error, null);
+    assert.equal(ready.revision,state.revision);
+    execFileSync(join(root,"target/x86_64-pc-windows-msvc/release/examples/prepare-connection.exe"),
+      [browser,dataDir,hostExe,"verify"],{encoding:"utf8",windowsHide:true});
+    passed("embedded companion extraction, native Rust registry registration and applied-rule confirmation");
+  }
   state.focus = { group_id: 1, end: Math.floor(Date.now()/1000) + 180, locked: false }; save();
   current = await sync(); assert.deepEqual(current.status.active, ["Browser verification"]); assert.equal(current.status.error, "");
   const dnr = await evaluate(popup.sessionId, "chrome.declarativeNetRequest.getDynamicRules()");

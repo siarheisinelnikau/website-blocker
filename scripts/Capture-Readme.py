@@ -20,7 +20,7 @@ state = {
     "allowlist": [], "focus": None, "pause_until": 0, "next_break": 0, "startup_updates": False,
 }
 (data / "state.json").write_text(json.dumps(state), encoding="utf-8")
-for tab in ("focus", "rules", "settings"):
+for tab in ("focus", "rules", "settings", "browser"):
     output = images / f"{tab}.png"
     started = time.time()
     env = os.environ.copy()
