@@ -1,6 +1,15 @@
 # Verification record
 
-Date: 2026-10-31 (Europe/Minsk). All work used this repository, isolated artificial settings and at most two Cargo jobs. Nothing was published; no remote Git operations occurred. Normal browser profiles, user data, hosts/DNS/firewall settings and drivers were not changed.
+Initial record: 2026-10-31 (Europe/Minsk). All work used this repository, isolated artificial settings and at most two Cargo jobs. Nothing was published; no remote Git operations occurred. Normal browser profiles, user data, hosts/DNS/firewall settings and drivers were not changed.
+
+## Version 0.2.0 follow-up (2026-11-01)
+
+The application package, embedded companion and Settings version now identify this local preview as **0.2.0**. Earlier changes had been handed over under an unchanged 0.1.0 label; those records below are historical. No remote publication occurred. Diagnostic, capture and browser-smoke defaults now derive the EXE name from the current manifest version instead of selecting an old executable.
+
+- Formatting, all-target Clippy, **16 Rust tests** and **7 Node tests** passed for 0.2.0.
+- Chrome 156.0.8078.48 and Edge 156.0.4314.50 each passed **15 managed headless checks** against `dist/WebsiteBlocker-v0.2.0.exe`, including embedded extraction, native registration and version-matched applied-rule confirmation. Temporary native registration was restored; normal profiles were not used.
+- The 16.5-second CPU/GDI diagnostic used PID 33240 and the new **7,432,704-byte** EXE. Visible idle (5 s), minimized (2 s), restored idle (3 s) and hidden (2 s) samples each had zero new layout/raster/present and no measurable process CPU-time increase. No external input was ignored in those samples. Restore presented the retained frame and the process exited normally.
+- Four real renderer captures were refreshed and inspected at 880 × 680; Settings visibly shows WebsiteBlocker 0.2.0. Capture processes exited. Computer use and injected OS input were not used. Normal input/perceptual smoothness and the remaining manual checks below are still unverified.
 
 ## Connection-wizard follow-up
 

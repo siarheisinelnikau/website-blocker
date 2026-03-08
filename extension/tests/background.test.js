@@ -1,5 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+
+const { version } = JSON.parse(readFileSync(new URL("../manifest.json", import.meta.url), "utf8"));
 
 test("service worker applies real DNR payloads, keeps a usable cache, and clears expired rules", async () => {
   const realNow = Date.now;
@@ -14,7 +17,7 @@ test("service worker applies real DNR payloads, keeps a usable cache, and clears
   globalThis.chrome = {
     storage: { local: { async get(keys) { return typeof keys === "string" ? { [keys]: storage[keys] } : Object.fromEntries(keys.map(k => [k, storage[k]])); },
       async set(value) { Object.assign(storage, value); } } },
-    runtime: { id: "pepcehhhdngafeeljmaanapnofkkhbdf", getManifest() { return {version:"0.1.0"}; }, onInstalled: event(), onStartup: event(), onMessage: event(), async sendNativeMessage(host, message) {
+    runtime: { id: "pepcehhhdngafeeljmaanapnofkkhbdf", getManifest() { return { version }; }, onInstalled: event(), onStartup: event(), onMessage: event(), async sendNativeMessage(host, message) {
       assert.equal(host, "com.websiteblocker.companion"); if (message.command === "applied") {
         assert.equal(message.browser, "chrome");
         assert.equal(message.extension_id, "pepcehhhdngafeeljmaanapnofkkhbdf");

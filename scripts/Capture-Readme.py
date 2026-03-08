@@ -7,7 +7,8 @@ import sys
 import time
 
 root = Path(__file__).resolve().parent.parent
-exe = Path(sys.argv[1]).resolve() if len(sys.argv) > 1 else root / "dist/WebsiteBlocker-v0.1.0.exe"
+version = json.loads((root / "extension/manifest.json").read_text(encoding="utf-8"))["version"]
+exe = Path(sys.argv[1]).resolve() if len(sys.argv) > 1 else root / f"dist/WebsiteBlocker-v{version}.exe"
 data = root / ".test-output/readme-capture/data"
 data.mkdir(parents=True, exist_ok=True)
 images = root / "docs/images"

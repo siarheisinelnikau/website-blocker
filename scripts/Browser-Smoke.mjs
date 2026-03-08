@@ -19,7 +19,8 @@ mkdirSync(dataDir, { recursive: true });
 const backup = join(output, "native-registry-backup.json");
 const manifest = managed ? join(dataDir, "native", `${browser}.json`) : join(output, "native-host.json");
 const bundle = managed ? join(dataDir, "browser-companion", "extension") : join(root, "extension");
-const hostExe = resolve(process.env.WEBSITEBLOCKER_TEST_EXE || join(root, "dist/WebsiteBlocker-v0.1.0.exe"));
+const version = JSON.parse(readFileSync(join(root, "extension/manifest.json"), "utf8")).version;
+const hostExe = resolve(process.env.WEBSITEBLOCKER_TEST_EXE || join(root, `dist/WebsiteBlocker-v${version}.exe`));
 const hostName = "com.websiteblocker.companion";
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 const state = { schema: 1, revision: 0, groups: [{ id: 1, name: "Browser verification", enabled: true,
