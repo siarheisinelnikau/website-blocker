@@ -18,7 +18,7 @@ A local, voluntary focus tool for websites. Manage website lists, recurring sche
 
 ## Connect and use
 
-1. Keep `WebsiteBlocker-v0.1.0.exe` in a permanent folder and open it. The browser companion is embedded; downloading/extracting a separate ZIP is no longer required.
+1. Keep `WebsiteBlocker-v0.2.0.exe` in a permanent folder and open it. The browser companion is embedded; downloading/extracting a separate ZIP is no longer required.
 2. Choose **Connect browser** from Focus or Settings, select Chrome or Edge, then **Connect Chrome/Edge**. The app prepares the companion files and per-user native registration automatically.
 3. In the same wizard, choose **Open Chrome/Edge extensions** and **Copy companion folder**. For this unpublished local preview, turn on **Developer mode** in that browser page, select **Load unpacked**, and paste/select the copied folder. No command, extension ID or configuration-file edit is needed.
 4. The companion opens a welcome page and connects automatically. WebsiteBlocker confirms when current rules are applied. Repeat for another browser/profile if needed.
@@ -55,8 +55,8 @@ Cargo uses a repository-local `target` directory, at most two build jobs and the
 Expected local artifacts:
 
 ```text
-dist/WebsiteBlocker-v0.1.0.exe
-dist/WebsiteBlocker-Companion-v0.1.0.zip
+dist/WebsiteBlocker-v0.2.0.exe
+dist/WebsiteBlocker-Companion-v0.2.0.zip
 dist/checksums.txt
 ```
 
@@ -91,4 +91,4 @@ python scripts/Capture-Readme.py            # four real renderer captures, each 
 
 These are explicit GUI diagnostic commands, separate from the noninteractive build checks. The diagnostic reports actual layout/raster/present counts and CPU time. It does not certify OS input, accessibility traversal or subjective smoothness.
 
-See [architecture](docs/ARCHITECTURE.md), [manual checks and verification](docs/VERIFICATION.md), and the [first release draft](docs/RELEASE-NOTES-v0.1.0.md). MIT-licensed; third-party dependencies retain their own licenses as declared in their pinned crate distributions.
+See [architecture](docs/ARCHITECTURE.md), [manual checks and verification](docs/VERIFICATION.md), and the [current preview notes](docs/RELEASE-NOTES-v0.2.0.md). MIT-licensed; third-party dependencies retain their own licenses as declared in their pinned crate distributions.
