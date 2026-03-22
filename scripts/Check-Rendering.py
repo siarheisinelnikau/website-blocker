@@ -4,6 +4,7 @@ import os
 from pathlib import Path
 import subprocess
 import sys
+import time
 
 root = Path(__file__).resolve().parent.parent
 version = json.loads((root / "extension/manifest.json").read_text(encoding="utf-8"))["version"]
@@ -28,7 +29,19 @@ progress = report.with_suffix(".progress.txt")
 if progress.exists():
     progress.unlink()
 try:
-    subprocess.run([str(exe)], cwd=root, env=env, timeout=22, capture_output=True, check=True)
+    started = time.monotonic()
+    with subprocess.Popen([str(exe)], cwd=root, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE) as process:
+        try:
+            subprocess.run([sys.executable, str(root / "scripts/Check-Icons.py"), str(exe),
+                            "--pid", str(process.pid), "--output", str(fixture / "icons")],
+                           cwd=root, timeout=5, check=True)
+            stdout, stderr = process.communicate(timeout=max(1, 22 - (time.monotonic() - started)))
+            if process.returncode:
+                raise subprocess.CalledProcessError(process.returncode, str(exe), stdout, stderr)
+        finally:
+            if process.poll() is None:
+                process.terminate()
+                process.communicate(timeout=3)
 except subprocess.TimeoutExpired:
     progress = report.with_suffix(".progress.txt")
     if progress.exists():

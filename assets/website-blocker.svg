@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
+  <title>WebsiteBlocker focus target</title>
+  <rect x="16" y="16" width="224" height="224" rx="48" fill="#19634f"/>
+  <circle cx="128" cy="128" r="86" fill="#f4f7f5"/>
+  <circle cx="128" cy="128" r="70" fill="#19634f"/>
+  <circle cx="128" cy="128" r="50" fill="#f4f7f5"/>
+  <circle cx="128" cy="128" r="38" fill="#19634f"/>
+  <circle cx="128" cy="128" r="16" fill="#f4f7f5"/>
+</svg>

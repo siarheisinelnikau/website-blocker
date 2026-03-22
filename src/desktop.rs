@@ -407,10 +407,19 @@ impl ApplicationHandler<Wake> for Host {
         trace(&self.diagnostic, "resumed: create window");
         let result = (|| -> Result<View, String> {
             let mut attributes = Window::default_attributes()
-                .with_title("WebsiteBlocker")
+                .with_title(if self.app.diagnostic {
+                    "WebsiteBlocker — isolated visual test"
+                } else {
+                    "WebsiteBlocker"
+                })
                 .with_active(!self.app.diagnostic)
-                .with_inner_size(winit::dpi::LogicalSize::new(880.0, 680.0))
-                .with_min_inner_size(winit::dpi::LogicalSize::new(740.0, 580.0));
+                .with_inner_size(winit::dpi::LogicalSize::new(740.0, 520.0))
+                .with_min_inner_size(winit::dpi::LogicalSize::new(680.0, 460.0));
+            #[cfg(windows)]
+            if self.app.diagnostic {
+                use winit::platform::windows::WindowAttributesExtWindows;
+                attributes = attributes.with_skip_taskbar(true);
+            }
             if self.app.diagnostic {
                 attributes = attributes.with_position(winit::dpi::LogicalPosition::new(24.0, 24.0));
             }
@@ -419,6 +428,12 @@ impl ApplicationHandler<Wake> for Host {
                     .create_window(attributes)
                     .map_err(|e| e.to_string())?,
             );
+            configure_window_icons(&window)?;
+            #[cfg(windows)]
+            if self.app.diagnostic {
+                use winit::platform::windows::WindowExtWindows;
+                window.set_enable(false);
+            }
             trace(&self.diagnostic, "window created: create GDI surface");
             let context = softbuffer::Context::new(event_loop.owned_display_handle())
                 .map_err(|e| e.to_string())?;
@@ -522,6 +537,12 @@ impl ApplicationHandler<Wake> for Host {
             return;
         }
         match &event {
+            WindowEvent::ScaleFactorChanged { .. } => {
+                if let Err(error) = configure_window_icons(&view.window) {
+                    self.fail(event_loop, error);
+                    return;
+                }
+            }
             WindowEvent::Occluded(value) => {
                 view.hidden = *value;
                 if !*value {
@@ -608,6 +629,39 @@ impl ApplicationHandler<Wake> for Host {
         self.view = None;
         trace(&self.diagnostic, "window resources released");
     }
+}
+
+#[cfg(windows)]
+fn configure_window_icons(window: &Window) -> Result<(), String> {
+    use windows_sys::Win32::UI::{
+        HiDpi::GetSystemMetricsForDpi,
+        WindowsAndMessaging::{SM_CXICON, SM_CXSMICON, SM_CYICON, SM_CYSMICON},
+    };
+    use winit::{
+        dpi::PhysicalSize,
+        platform::windows::{IconExtWindows, WindowExtWindows},
+        window::Icon,
+    };
+    let dpi = (window.scale_factor() * 96.0).round() as u32;
+    let load = |x, y| {
+        // SAFETY: This reads icon dimensions for this window's DPI; no pointers are passed.
+        let size = unsafe {
+            PhysicalSize::new(
+                GetSystemMetricsForDpi(x, dpi).max(1) as u32,
+                GetSystemMetricsForDpi(y, dpi).max(1) as u32,
+            )
+        };
+        Icon::from_resource(1, Some(size))
+            .map_err(|e| format!("Cannot load the application icon: {e}"))
+    };
+    window.set_window_icon(Some(load(SM_CXSMICON, SM_CYSMICON)?));
+    window.set_taskbar_icon(Some(load(SM_CXICON, SM_CYICON)?));
+    Ok(())
+}
+
+#[cfg(not(windows))]
+fn configure_window_icons(_window: &Window) -> Result<(), String> {
+    Ok(())
 }
 
 #[cfg(windows)]

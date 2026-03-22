@@ -17,7 +17,7 @@ try {
     $exeName = "WebsiteBlocker-v$version.exe"
     Copy-Item -LiteralPath 'target/x86_64-pc-windows-msvc/release/website-blocker.exe' -Destination "dist/$exeName"
     $companionName = "WebsiteBlocker-Companion-v$version.zip"
-    Compress-Archive -Path 'extension', 'scripts', 'docs', 'README.md', 'LICENSE' -DestinationPath "dist/$companionName" -Force
+    Compress-Archive -Path 'extension', 'scripts', 'docs', 'assets', 'README.md', 'LICENSE' -DestinationPath "dist/$companionName" -Force
     $lines = @($exeName, $companionName) | ForEach-Object {
         $hash = (Get-FileHash -LiteralPath "dist/$_" -Algorithm SHA256).Hash.ToLowerInvariant()
         "$hash  $_"
