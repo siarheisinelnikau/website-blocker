@@ -26,9 +26,14 @@ pub const BUNDLE_FILES: &[(&str, &[u8])] = &[
     ("popup.js", include_bytes!("../extension/popup.js")),
     ("blocked.html", include_bytes!("../extension/blocked.html")),
     ("blocked.js", include_bytes!("../extension/blocked.js")),
+    ("blocked.css", include_bytes!("../extension/blocked.css")),
     ("style.css", include_bytes!("../extension/style.css")),
     ("welcome.html", include_bytes!("../extension/welcome.html")),
     ("welcome.js", include_bytes!("../extension/welcome.js")),
+    ("icon16.png", include_bytes!("../extension/icon16.png")),
+    ("icon32.png", include_bytes!("../extension/icon32.png")),
+    ("icon48.png", include_bytes!("../extension/icon48.png")),
+    ("icon128.png", include_bytes!("../extension/icon128.png")),
 ];
 
 #[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq)]
@@ -105,7 +110,33 @@ struct NativeManifest {
 }
 
 pub fn extension_dir(store: &Store) -> PathBuf {
-    store.dir.join("browser-companion/extension")
+    store.dir.join("browser-companion").join("extension")
+}
+
+pub fn companion_folder_text(store: &Store) -> Result<String, String> {
+    let folder = extension_dir(store);
+    if !folder.join("manifest.json").is_file() {
+        return Err("The companion folder is not ready. Choose Connect browser first.".into());
+    }
+    let canonical = folder
+        .canonicalize()
+        .map_err(|e| format!("Cannot find the companion folder: {e}"))?;
+    let path = canonical
+        .to_str()
+        .ok_or("The companion path cannot be copied as text.")?;
+    // Canonical paths have a verbatim prefix that Chromium's folder picker does
+    // not accept reliably. Return a normal drive/UNC path with native separators.
+    #[cfg(windows)]
+    let path = if let Some(share) = path.strip_prefix(r"\\?\UNC\") {
+        format!(r"\\{share}")
+    } else {
+        path.strip_prefix(r"\\?\")
+            .unwrap_or(path)
+            .replace('/', r"\")
+    };
+    #[cfg(not(windows))]
+    let path = path.to_owned();
+    Ok(path)
 }
 pub fn manifest_path(store: &Store, browser: Browser) -> PathBuf {
     store
@@ -249,7 +280,10 @@ pub fn inspect(store: &Store, registry: &impl Registration, now: i64) -> Result<
         let prepared = registry
             .read(browser)?
             .is_some_and(|path| path == manifest_path(store, browser))
-            && extension_dir(store).join("manifest.json").is_file();
+            && read_limited(&extension_dir(store).join("manifest.json"), 16384)
+                .ok()
+                .as_deref()
+                == Some(BUNDLE_FILES[0].1);
         let report: Option<Applied> = read_limited(
             &store
                 .dir
@@ -339,6 +373,25 @@ mod tests {
                 .all(|(name, _)| !name.contains(['/', '\\']))
         );
         assert!(BUNDLE_FILES.iter().any(|(name, _)| *name == "welcome.html"));
+        for icons in [&manifest["icons"], &manifest["action"]["default_icon"]] {
+            for (size, path) in icons.as_object().unwrap() {
+                let bytes = BUNDLE_FILES
+                    .iter()
+                    .find(|(name, _)| Some(*name) == path.as_str())
+                    .expect("Manifest icon is missing from the embedded companion")
+                    .1;
+                assert_eq!(&bytes[..8], b"\x89PNG\r\n\x1a\n");
+                let dimension: u32 = size.parse().unwrap();
+                assert_eq!(
+                    u32::from_be_bytes(bytes[16..20].try_into().unwrap()),
+                    dimension
+                );
+                assert_eq!(
+                    u32::from_be_bytes(bytes[20..24].try_into().unwrap()),
+                    dimension
+                );
+            }
+        }
     }
     #[test]
     fn preparation_is_idempotent_per_browser_and_does_not_change_rules() {
@@ -350,7 +403,10 @@ mod tests {
         for (name, bytes) in BUNDLE_FILES {
             assert_eq!(std::fs::read(folder.join(name)).unwrap(), *bytes);
         }
+        std::fs::write(folder.join("manifest.json"), b"{\"version\":\"0.0.1\"}").unwrap();
+        assert!(!inspect(&store, &registry, 1000).unwrap().chrome.prepared);
         prepare(&store, Browser::Chrome, &exe, &registry).unwrap();
+        assert!(inspect(&store, &registry, 1000).unwrap().chrome.prepared);
         let mut manifest: NativeManifest =
             serde_json::from_slice(&std::fs::read(manifest_path(&store, Browser::Chrome)).unwrap())
                 .unwrap();
@@ -372,6 +428,24 @@ mod tests {
         let status = inspect(&store, &registry, 1000).unwrap();
         assert!(status.chrome.prepared);
         assert!(!status.chrome.connected);
+    }
+    #[test]
+    fn copied_folder_is_a_real_picker_path_with_spaces_and_unicode() {
+        let (_temp, mut store, exe) = fixture();
+        store.dir = store.dir.join("Profile with spaces Ω");
+        assert!(companion_folder_text(&store).is_err());
+        prepare(&store, Browser::Chrome, &exe, &Registry::default()).unwrap();
+        let text = companion_folder_text(&store).unwrap();
+        assert!(text.contains("Profile with spaces Ω"));
+        assert!(Path::new(&text).join("manifest.json").is_file());
+        #[cfg(windows)]
+        {
+            assert!(!text.starts_with(r"\\?\"));
+            assert!(!text.contains('/'));
+            assert!(text.ends_with(r"\browser-companion\extension"));
+        }
+        std::fs::remove_file(extension_dir(&store).join("manifest.json")).unwrap();
+        assert!(companion_folder_text(&store).is_err());
     }
     #[test]
     fn failed_or_foreign_registration_is_preserved() {

@@ -26,6 +26,7 @@ enum StateJob {
     SetupScan(bool),
     PrepareBrowser(Browser),
     OpenBrowser(Browser),
+    CompanionFolder,
 }
 enum UpdateJob {
     Check,
@@ -41,6 +42,7 @@ enum Event {
     SetupError(String),
     Prepared(Result<Overview, String>),
     BrowserOpened(Result<(), String>),
+    CompanionFolder(Result<String, String>),
 }
 
 #[derive(PartialEq)]
@@ -139,6 +141,7 @@ pub struct App {
     setup_browser: Browser,
     setup_message: String,
     setup_wait_until: Option<Instant>,
+    companion_folder: Option<String>,
     pub close_requested: bool,
     pub diagnostic: bool,
 }
@@ -170,7 +173,7 @@ impl App {
             style
                 .text_styles
                 .insert(egui::TextStyle::Heading, egui::FontId::proportional(25.0));
-            style.spacing.item_spacing = egui::vec2(12.0, 10.0);
+            style.spacing.item_spacing = egui::vec2(12.0, 8.0);
             style.spacing.button_padding = egui::vec2(14.0, 8.0);
             style.spacing.interact_size.y = 34.0;
             style.animation_time = 0.0;
@@ -227,6 +230,9 @@ impl App {
                     }
                     StateJob::OpenBrowser(browser) => {
                         Event::BrowserOpened(setup::open_extensions(browser))
+                    }
+                    StateJob::CompanionFolder => {
+                        Event::CompanionFolder(setup::companion_folder_text(&state_store))
                     }
                 };
                 if state_events.send(event).is_err() {
@@ -289,6 +295,7 @@ impl App {
             setup_browser: Browser::Chrome,
             setup_message: String::new(),
             setup_wait_until: None,
+            companion_folder: None,
             close_requested: false,
             diagnostic: std::env::var_os("WEBSITEBLOCKER_CAPTURE").is_some()
                 || std::env::var_os("WEBSITEBLOCKER_DIAGNOSTICS").is_some(),
@@ -349,7 +356,7 @@ impl App {
             .collect::<Vec<_>>()
             .join("\n");
     }
-    pub fn receive(&mut self, _ctx: &egui::Context) {
+    pub fn receive(&mut self, ctx: &egui::Context) {
         while let Ok(event) = self.events.try_recv() {
             match event {
                 Event::State(result, mut reload_editor) => {
@@ -363,9 +370,7 @@ impl App {
                             }
                             self.state = state;
                             self.ready = true;
-                            self.message =
-                                "Saved on this computer. The browser companion shows blocking status."
-                                    .into();
+                            self.message = "Saved on this computer.".into();
                             if !self.state.groups.iter().any(|g| g.id == self.selected) {
                                 self.selected = self.state.groups.first().map_or(0, |g| g.id);
                                 reload_editor = true;
@@ -396,6 +401,17 @@ impl App {
                 Event::SetupError(error) => {
                     self.setup_loaded = true;
                     self.setup_message = error;
+                }
+                Event::CompanionFolder(result) => {
+                    self.setup_working = false;
+                    match result {
+                        Ok(path) => {
+                            ctx.copy_text(path.clone());
+                            self.companion_folder = Some(path);
+                            self.setup_message = "Folder path sent to the clipboard. In Load unpacked, paste it into the address bar (Ctrl+L), press Enter, then choose Select folder.".into();
+                        }
+                        Err(error) => self.setup_message = error,
+                    }
                 }
                 Event::Prepared(result) => {
                     self.setup_working = false;
@@ -451,10 +467,12 @@ impl App {
     fn focus(&mut self, ui: &mut egui::Ui) {
         let now = Utc::now().timestamp();
         let active = self.state.focus.as_ref().is_some_and(|f| f.end > now);
-        ui.heading("Make space for your next task.");
-        ui.label("Choose a website list and give yourself an uninterrupted stretch.");
-        if self.setup_loaded && !self.setup.connected() {
-            ui.add_space(8.0);
+        ui.heading(if active {
+            "Your focus session"
+        } else {
+            "Ready to focus?"
+        });
+        if active && self.setup_loaded && !self.setup.connected() {
             ui.horizontal_wrapped(|ui| {
                 ui.label("Your current browser rules have not been confirmed yet.");
                 if active && ui.button("Connect browser").clicked() {
@@ -462,23 +480,21 @@ impl App {
                 }
             });
         }
-        ui.add_space(12.0);
+        ui.add_space(6.0);
         egui::Frame::new()
             .fill(Color32::WHITE)
             .corner_radius(12)
-            .inner_margin(22.0)
+            .inner_margin(16.0)
             .show(ui, |ui| {
                 ui.set_width(ui.available_width());
-                ui.label(
-                    RichText::new(if active {
-                        "FOCUS IN PROGRESS"
-                    } else {
-                        "YOUR NEXT SESSION"
-                    })
-                    .size(12.0)
-                    .strong()
-                    .color(ACCENT),
-                );
+                if active {
+                    ui.label(
+                        RichText::new("FOCUS IN PROGRESS")
+                            .size(12.0)
+                            .strong()
+                            .color(ACCENT),
+                    );
+                }
                 if let Some(focus) = &self.state.focus
                     && focus.end > now
                 {
@@ -504,63 +520,70 @@ impl App {
                     ));
                 } else {
                     let previous = self.selected;
-                    ui.label("Website list");
-                    egui::ComboBox::from_id_salt("focus-list")
-                        .width(280.0)
-                        .selected_text(
-                            self.state
-                                .groups
-                                .iter()
-                                .find(|g| g.id == self.selected)
-                                .map_or("Choose a list", |g| &g.name),
-                        )
-                        .show_ui(ui, |ui| {
-                            for group in self.state.groups.iter().filter(|g| g.enabled) {
-                                ui.selectable_value(&mut self.selected, group.id, &group.name);
+                    ui.horizontal_top(|ui| {
+                        ui.vertical(|ui| {
+                            ui.label("Website list");
+                            egui::ComboBox::from_id_salt("focus-list")
+                                .width(260.0)
+                                .selected_text(
+                                    self.state
+                                        .groups
+                                        .iter()
+                                        .find(|g| g.id == self.selected)
+                                        .map_or("Choose a list", |g| &g.name),
+                                )
+                                .show_ui(ui, |ui| {
+                                    for group in self.state.groups.iter().filter(|g| g.enabled) {
+                                        ui.selectable_value(
+                                            &mut self.selected,
+                                            group.id,
+                                            &group.name,
+                                        );
+                                    }
+                                });
+                        });
+                        ui.vertical(|ui| {
+                            ui.label("Duration");
+                            egui::ComboBox::from_id_salt("duration")
+                                .width(160.0)
+                                .selected_text(if self.custom_duration {
+                                    "Custom duration".to_string()
+                                } else {
+                                    format!("{} minutes", self.minutes)
+                                })
+                                .show_ui(ui, |ui| {
+                                    for minutes in [25, 50, 90] {
+                                        if ui
+                                            .selectable_label(
+                                                !self.custom_duration && self.minutes == minutes,
+                                                format!("{minutes} minutes"),
+                                            )
+                                            .clicked()
+                                        {
+                                            self.minutes = minutes;
+                                            self.custom_duration = false;
+                                        }
+                                    }
+                                    ui.selectable_value(
+                                        &mut self.custom_duration,
+                                        true,
+                                        "Custom duration",
+                                    );
+                                });
+                            if self.custom_duration {
+                                ui.add(
+                                    egui::DragValue::new(&mut self.minutes)
+                                        .range(1..=240)
+                                        .suffix(" min"),
+                                );
                             }
                         });
+                    });
                     if previous != self.selected {
                         self.load_editor();
                     }
                     ui.add_space(4.0);
-                    ui.horizontal(|ui| {
-                        ui.label("Duration");
-                        egui::ComboBox::from_id_salt("duration")
-                            .width(160.0)
-                            .selected_text(if self.custom_duration {
-                                "Custom duration".to_string()
-                            } else {
-                                format!("{} minutes", self.minutes)
-                            })
-                            .show_ui(ui, |ui| {
-                                for minutes in [25, 50, 90] {
-                                    if ui
-                                        .selectable_label(
-                                            !self.custom_duration && self.minutes == minutes,
-                                            format!("{minutes} minutes"),
-                                        )
-                                        .clicked()
-                                    {
-                                        self.minutes = minutes;
-                                        self.custom_duration = false;
-                                    }
-                                }
-                                ui.selectable_value(
-                                    &mut self.custom_duration,
-                                    true,
-                                    "Custom duration",
-                                );
-                            });
-                        if self.custom_duration {
-                            ui.add(
-                                egui::DragValue::new(&mut self.minutes)
-                                    .range(1..=240)
-                                    .suffix(" min"),
-                            );
-                        }
-                    });
-                    ui.checkbox(&mut self.locked, "Keep this session locked until it ends");
-                    ui.small("A locked session cannot be stopped early and has no breaks.");
+                    ui.checkbox(&mut self.locked, "Lock session: no early stop or breaks");
                     ui.add_space(4.0);
                     if self.setup.connected() {
                         if primary(ui, format!("Start {}-minute focus", self.minutes)).clicked() {
@@ -597,7 +620,7 @@ impl App {
             ui.small("One break per 30 minutes. Scheduled blocks continue after a focus session ends.");
         });
         ui.add_space(8.0);
-        ui.small("Your browser companion keeps schedules running when you close this window.");
+        ui.small("Schedules keep running when this window is closed.");
     }
 
     fn save_rules(&mut self, delete: bool) -> Result<(), String> {
@@ -640,7 +663,6 @@ impl App {
 
     fn rules(&mut self, ui: &mut egui::Ui) {
         ui.heading("Websites");
-        ui.label("Block these websites during a focus session or a weekly schedule.");
         if self.state.locked(Utc::now().timestamp()) {
             ui.colored_label(
                 Color32::DARK_RED,
@@ -718,7 +740,6 @@ impl App {
             "Checking browser connection…"
         };
         ui.label(label);
-        ui.small("Blocking works only in browser profiles with the companion enabled.");
         if primary(
             ui,
             if self.setup.connected() {
@@ -738,7 +759,6 @@ impl App {
             self.tab = Tab::Settings;
         }
         ui.heading("Connect your browser");
-        ui.label("One-time setup for the browser profile you want to use.");
         ui.horizontal(|ui| {
             for browser in [Browser::Chrome, Browser::Edge] {
                 if ui
@@ -801,6 +821,15 @@ impl App {
                 ACCENT,
                 "Ready. The companion files and browser connection are prepared.",
             );
+            if ui
+                .add_enabled(
+                    !self.setup_working,
+                    egui::Button::new("Update connection files"),
+                )
+                .clicked()
+            {
+                self.setup_job(StateJob::PrepareBrowser(browser));
+            }
         } else {
             ui.small("WebsiteBlocker prepares the included companion automatically.");
             if ui
@@ -817,19 +846,40 @@ impl App {
                 self.next_connection = Instant::now();
             }
         }
+        if !status.prepared {
+            ui.add_space(8.0);
+            ui.small("Next: add the companion in your browser, then confirm the connection.");
+            if !status.error.is_empty() {
+                ui.colored_label(Color32::DARK_RED, &status.error);
+            }
+            if !self.setup_message.is_empty() {
+                ui.label(&self.setup_message);
+            }
+            if self.setup_working {
+                ui.label("Preparing connection…");
+            }
+            return;
+        }
         ui.add_space(8.0);
         ui.label(RichText::new(format!("2. Add the companion in {}", browser.label())).strong());
         ui.small("Local preview: the companion is not in browser stores yet. This browser step is required once.");
         ui.add_enabled_ui(status.prepared && !self.setup_working, |ui| {
             ui.horizontal_wrapped(|ui| {
-                if ui.button(format!("Open {} extensions", browser.label())).clicked() { self.setup_job(StateJob::OpenBrowser(browser)); }
+                if ui
+                    .button(format!("Open {} extensions", browser.label()))
+                    .clicked()
+                {
+                    self.setup_job(StateJob::OpenBrowser(browser));
+                }
                 if ui.button("Copy companion folder").clicked() {
-                    ui.ctx().copy_text(setup::extension_dir(&Store { dir: self.store_dir.clone() }).display().to_string());
-                    self.setup_message = "Folder copied. Paste it into the folder picker after choosing Load unpacked.".into();
+                    self.setup_job(StateJob::CompanionFolder);
                 }
             });
         });
         ui.label("In the browser: turn on Developer mode, choose Load unpacked, then select the copied companion folder. Already added? Choose Reload on its card.");
+        if let Some(path) = &self.companion_folder {
+            ui.add(egui::TextEdit::singleline(&mut path.as_str()).desired_width(f32::INFINITY));
+        }
         egui::CollapsingHeader::new("Added an older preview before?").show(ui, |ui| {
             ui.small("Disable or remove the earlier WebsiteBlocker copy in the browser before adding this companion. Keep only one enabled copy in each profile.");
         });
@@ -859,8 +909,12 @@ impl App {
     }
 
     fn settings(&mut self, ui: &mut egui::Ui) {
-        ui.heading("Settings");
-        ui.label(format!("WebsiteBlocker {}", updater::VERSION));
+        ui.horizontal(|ui| {
+            ui.heading("Settings");
+            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                ui.small(format!("WebsiteBlocker {}", updater::VERSION));
+            });
+        });
         ui.add_space(10.0);
         self.connection_card(ui);
         ui.add_space(10.0);
@@ -874,7 +928,6 @@ impl App {
         {
             self.submit(StateJob::Apply(Change::StartupUpdates(startup)));
         }
-        ui.small("Checks run quietly. Downloads and installation always need your action.");
         if ui
             .add_enabled(!self.update_busy, egui::Button::new("Check for updates"))
             .clicked()
@@ -948,11 +1001,11 @@ impl App {
             ctx.request_repaint_after(Duration::from_secs(1));
         }
         egui::TopBottomPanel::top("header").show(ctx, |ui| {
-            ui.add_space(8.0);
+            ui.add_space(4.0);
             ui.horizontal(|ui| {
                 ui.label(
                     RichText::new("◎  WebsiteBlocker")
-                        .size(22.0)
+                        .size(19.0)
                         .strong()
                         .color(Color32::from_rgb(33, 92, 82)),
                 );
@@ -966,7 +1019,7 @@ impl App {
                     self.tab = Tab::Settings;
                 }
             });
-            ui.add_space(8.0);
+            ui.add_space(4.0);
             if let Some(update) = &self.available {
                 ui.label(format!(
                     "Update {} available — open Settings to install.",
@@ -987,11 +1040,11 @@ impl App {
             .frame(
                 egui::Frame::new()
                     .fill(Color32::from_rgb(244, 247, 244))
-                    .inner_margin(24.0),
+                    .inner_margin(18.0),
             )
             .show(ctx, |ui| {
                 egui::ScrollArea::vertical().show(ui, |ui| {
-                    ui.set_max_width(790.0);
+                    ui.set_max_width(ui.available_width().min(790.0));
                     ui.add_enabled_ui(self.ready && !self.busy, |ui| match self.tab {
                         Tab::Focus => self.focus(ui),
                         Tab::Rules => self.rules(ui),
