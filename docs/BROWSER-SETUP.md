@@ -4,7 +4,7 @@ The EXE contains the companion. Use the connection wizard; no terminal commands,
 
 1. Keep the EXE in a permanent folder. Open **Settings → Connect browser**, or the **Connect browser to start** action on Focus.
 2. Select **Chrome** or **Edge**, then **Connect Chrome/Edge**. WebsiteBlocker extracts its included companion into its own data directory and registers its native host for the current Windows user. No administrator access is requested.
-3. Select **Open Chrome/Edge extensions**, then **Copy companion folder** in the wizard. In the browser's extension page, enable **Developer mode**, choose **Load unpacked**, and paste/select that copied directory in the folder picker.
+3. Select **Open Chrome/Edge extensions**, then **Copy companion folder** in the wizard. In the browser's extension page, enable **Developer mode**, choose **Load unpacked**, and paste that copied directory into the folder picker’s address bar (Ctrl+L, paste, Enter), then choose Select folder. The wizard displays the verified path as well.
 4. The companion opens its welcome page and applies the current rules. The desktop checks for confirmation automatically while setup is open. If needed, use **Check connection** on the companion welcome page, then **Check connection** in the desktop wizard.
 5. When the wizard confirms the connection, select **Go to Focus**. Repeat in other browser profiles where blocking is wanted. A connection in one profile does not enable the companion in every profile.
 
@@ -39,3 +39,5 @@ Settings and rule files are outside the EXE directory and survive connection pre
 The production setup backend is tested with a fake registry and isolated files. `examples/prepare-connection.rs` exercises the same backend headlessly for opt-in live fixtures. After building that example, `node scripts/Browser-Smoke.mjs Chrome --headless --managed` (or Edge) tests the embedded extraction, real per-user Rust registration, applied-rule status and navigation enforcement. It uses disposable profiles, backs up/restores the exact native-host value and never uses regular profiles or credentials. These opt-in live tests are separate from Check.ps1 and CI. Legacy PowerShell setup scripts remain developer/backward-compatibility tools; the consumer workflow does not require them.
 
 Firefox remains unsupported: it needs a reviewed manifest/API adaptation, Mozilla native-host registration and tested rule semantics.
+
+For block-page visual checks without replacing an existing native registration, use `node scripts/Browser-Smoke.mjs Chrome --headless --visual` (or Edge). It obtains a real EXE snapshot directly using isolated state, applies it through the extension engine in a disposable profile, and checks actual DNR navigation, page controls, motion preferences and responsive layouts. This fixture does not certify browser-to-native registration transport.

@@ -2,6 +2,30 @@
 
 Initial record: 2026-10-31 (Europe/Minsk). All work used this repository, isolated artificial settings and at most two Cargo jobs. Nothing was published; no remote Git operations occurred. Normal browser profiles, user data, hosts/DNS/firewall settings and drivers were not changed.
 
+## Version 0.3.0: identity, copy path and compact UI (2026-11-01)
+
+The final EXE is `dist/WebsiteBlocker-v0.3.0.exe`, **7,538,688 bytes**. Application/companion versions and Windows file/product metadata agree. Formatting, all-target Clippy, **17 Rust tests** and **7 Node tests** passed. The new copy-path regression checks a real prepared folder with spaces/Unicode, normal Windows separators, removal of the verbatim prefix and rejection of a missing manifest. Preparation also rejects stale companion manifests as readiness evidence, and an upgrade regression verifies repair through preparation. Embedded asset coverage includes every manifest icon reference.
+
+The missing-icon defect was real: earlier EXEs had no icon resource and the window had no icon assignment. The package inspector now requires all nine 16/20/24/32/40/48/64/128/256 px icon resources to match the committed ICO. Read-only Win32 resource mapping and DrawIconEx rendering verified nonblank output on light/dark backgrounds. WM_GETICON on the exact final diagnostic PID **43784** returned 16 × 16 and 32 × 32 icons whose rendered pixels matched the EXE resource. These are resource/handle proofs, not Explorer, taskbar or Alt-Tab screenshots. Resource-data mapping follows [Microsoft's native icon workflow](https://learn.microsoft.com/en-us/windows/win32/menurc/using-icons).
+
+![Native Win32 rendering of actual packaged icon resources](images/icon-resources.png)
+
+![Icons read from the final diagnostic window and compared with EXE resources](images/icon-assignment.png)
+
+The final CPU/GDI diagnostic used an isolated, input-disabled window omitted from the taskbar, 20 logical cores and a 22-second external bound. Visible settled idle (5 s), minimized (2 s), restored settled idle (3 s) and hidden (2 s) samples each had **0 layout/raster/present**. Visible, minimized and restored intervals had no measurable CPU-time increase; hidden accounted for one 0.015625-second CPU-time quantum (0.781% of one core, 0.0391% of the machine over two seconds). Zero external input events were counted in these intervals. Native minimize/restore/hide states and retained-frame presentation were checked; the process exited. The target's selected graphics-module check found gdi32.dll only. This does not measure the desktop compositor or certify normal input latency.
+
+An intermediate v0.2.1 diagnostic had 677 ignored input events, focus changes and an unexpected restore before its minimized sample; it failed and was not used as idle evidence. Disposable visual-test windows are now explicitly labeled, disabled for input and omitted from the taskbar to prevent interference with the user's working copy. Normal activation/taskbar behavior is unchanged.
+
+Four fresh real renderer captures were reviewed at **740 × 520**. The initial window is smaller than the previous 880 × 680 build. List/duration controls share a row, repeated help is removed, and setup reveals later steps only when ready. Capture review exposed a fixed maximum content width overflowing the smaller viewport; it was corrected to respect available width, then all screens were recaptured with no clipped version text or action buttons. Settings visibly shows 0.3.0. All capture processes exited.
+
+Chrome 156.0.8078.48 and Edge 156.0.4314.50 each passed **10 isolated visual-policy checks** for this version. These obtain a real framed snapshot from the new EXE directly, feed it through the actual extension engine/DNR API in disposable profiles, and verify blocked navigation, allow priority/host/path boundaries, actual active-list text, image loading, working breath controls, event-only parallax, settled animation state, reduced-motion behavior and 390/768 px layouts. Real desktop/mobile browser PNGs were reviewed. The page uses only local CSS/JS/assets.
+
+The managed native-transport test encountered an existing registration outside its fixture directory and correctly refused to overwrite it. The final visual tests changed no native registration. They do not repeat the full browser-to-native transport checks recorded for v0.2.0 below. Normal profiles/settings were preserved; no computer-use/CUA, injected OS input, global icon-cache edits or publication occurred.
+
+![Real local block page rendered in Chrome](images/blocked.png)
+
+The remaining manual checks still apply: native folder-picker paste/selection and clipboard behavior during ordinary use, Explorer/taskbar appearance and pinned shortcuts, mixed-DPI moves, OS input/perceived smoothness and actual updater installation. The screenshots and handle checks establish their stated scope only.
+
 ## Version 0.2.0 follow-up (2026-11-01)
 
 The application package, embedded companion and Settings version now identify this local preview as **0.2.0**. Earlier changes had been handed over under an unchanged 0.1.0 label; those records below are historical. No remote publication occurred. Diagnostic, capture and browser-smoke defaults now derive the EXE name from the current manifest version instead of selecting an old executable.

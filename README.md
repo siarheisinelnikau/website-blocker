@@ -11,16 +11,16 @@ A local, voluntary focus tool for websites. Manage website lists, recurring sche
 - Focus timers from 1 to 240 minutes. Flexible sessions permit deliberate early stopping; locked sessions protect rule edits, breaks and early stopping until the timer ends.
 - Recurring weekday schedules in named IANA timezones, with overnight ranges and daylight-saving transitions handled by the browser's `Intl` database.
 - Five-minute breaks, at most once per 30 minutes, requiring the phrase `TAKE A BREAK`. Ending a flexible session requires `END FOCUS`; scheduled blocks continue independently.
-- A clear browser block page, extension popup with applied rule status and connection errors, and per-user native messaging without a local web server.
+- A custom offline block page with active-rule information, event-driven parallax, a finite breathing exercise and reduced-motion support; an extension popup with applied rule status and connection errors, and per-user native messaging without a local web server.
 - **Settings → Connect browser** prepares the embedded companion and native registration. No PowerShell, JSON/registry editing or extension-ID entry is required. The wizard confirms rules were actually applied before reporting readiness.
 - Local JSON settings with validation, atomic replacement, bounded reads, writer locking and stale-edit protection. Browsing history and requested URLs are not stored.
 - Settings → Updates shows the installed version, manual **Check for updates**, a persistent startup-check toggle (on by default), and user-initiated **Download and install** with progress, SHA-256 checking and a restart helper. Updates require an official compatible asset and `checksums.txt`; unavailable releases are reported truthfully.
 
 ## Connect and use
 
-1. Keep `WebsiteBlocker-v0.2.0.exe` in a permanent folder and open it. The browser companion is embedded; downloading/extracting a separate ZIP is no longer required.
+1. Keep `WebsiteBlocker-v0.3.0.exe` in a permanent folder and open it. The browser companion is embedded; downloading/extracting a separate ZIP is no longer required.
 2. Choose **Connect browser** from Focus or Settings, select Chrome or Edge, then **Connect Chrome/Edge**. The app prepares the companion files and per-user native registration automatically.
-3. In the same wizard, choose **Open Chrome/Edge extensions** and **Copy companion folder**. For this unpublished local preview, turn on **Developer mode** in that browser page, select **Load unpacked**, and paste/select the copied folder. No command, extension ID or configuration-file edit is needed.
+3. After preparation, the wizard reveals **Open Chrome/Edge extensions** and **Copy companion folder**. For this unpublished local preview, turn on **Developer mode** in that browser page, select **Load unpacked**, paste the copied path into the folder picker’s address bar (**Ctrl+L**, paste, **Enter**), then choose **Select folder**. No command, extension ID or configuration-file edit is needed.
 4. The companion opens a welcome page and connects automatically. WebsiteBlocker confirms when current rules are applied. Repeat for another browser/profile if needed.
 5. Edit **Websites**, save, then start a short flexible focus session. Before a browser is connected, the main action takes you to setup instead of starting an ineffective session.
 
@@ -55,8 +55,8 @@ Cargo uses a repository-local `target` directory, at most two build jobs and the
 Expected local artifacts:
 
 ```text
-dist/WebsiteBlocker-v0.2.0.exe
-dist/WebsiteBlocker-Companion-v0.2.0.zip
+dist/WebsiteBlocker-v0.3.0.exe
+dist/WebsiteBlocker-Companion-v0.3.0.zip
 dist/checksums.txt
 ```
 
@@ -72,7 +72,7 @@ Settings live at `%LOCALAPPDATA%\WebsiteBlocker\state.json`. Keep a copy before 
 
 ## Screenshots
 
-Real client-area captures from the application's CPU/GDI renderer, using disposable example-domain settings at 880 × 680 pixels. Each capture saves a PNG and exits; no desktop automation is needed. Startup update checks are disabled in these fixtures only.
+Real client-area captures from the application's CPU/GDI renderer, using disposable example-domain settings at 740 × 520 pixels. Each capture saves a PNG and exits; no desktop automation is needed. Startup update checks are disabled in these fixtures only.
 
 ![Focus setup with a website list, duration and explicit session lock](docs/images/focus.png)
 
@@ -80,7 +80,11 @@ Real client-area captures from the application's CPU/GDI renderer, using disposa
 
 ![Settings with the browser connection action and startup update preference](docs/images/settings.png)
 
-![In-app Chrome and Edge connection wizard](docs/images/browser.png)
+![First step of the in-app Chrome and Edge connection wizard](docs/images/browser.png)
+
+Real Chrome rendering of the local companion’s block page (no external fonts or images):
+
+![Blocked website page with the active list and focus actions](docs/images/blocked.png)
 
 For a bounded developer capture after applying the rendering gate:
 
@@ -89,6 +93,8 @@ python scripts/Check-Rendering.py           # 16.5-second isolated diagnostic, t
 python scripts/Capture-Readme.py            # four real renderer captures, each exits
 ```
 
+Native icon verification in `Check-Rendering.py` and asset regeneration with `Build-Icons.py` require Pillow. The regular package inspector uses only the Python standard library. See the native resource and assigned-icon proofs in [verification notes](docs/VERIFICATION.md).
+
 These are explicit GUI diagnostic commands, separate from the noninteractive build checks. The diagnostic reports actual layout/raster/present counts and CPU time. It does not certify OS input, accessibility traversal or subjective smoothness.
 
-See [architecture](docs/ARCHITECTURE.md), [manual checks and verification](docs/VERIFICATION.md), and the [current preview notes](docs/RELEASE-NOTES-v0.2.0.md). MIT-licensed; third-party dependencies retain their own licenses as declared in their pinned crate distributions.
+See [architecture](docs/ARCHITECTURE.md), [manual checks and verification](docs/VERIFICATION.md), and the [current preview notes](docs/RELEASE-NOTES-v0.3.0.md). MIT-licensed; third-party dependencies retain their own licenses as declared in their pinned crate distributions.
