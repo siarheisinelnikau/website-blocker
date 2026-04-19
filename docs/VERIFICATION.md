@@ -105,3 +105,16 @@ README images are real client-area 880 x 680 captures of the same production CPU
 - [ ] Release signing/licensing review and canonical repository availability before any future publication.
 
 There is no tray resident process or tray interaction to validate: closing the desktop exits and enforcement remains in the browser. Builds remain unsigned and Firefox unsupported.
+
+
+## Shared updater extraction audit (2026-11-01)
+
+The existing Updates UI, persisted startup opt-out and explicit installation action now delegate canonical release selection, verified download/progress, PE validation, same-volume replacement, rollback and cleanup to the sibling `rust-auto-updator` core. Product configuration retains `WebsiteBlocker-vVERSION.exe`, `checksums.txt` and the 200 MiB limit. `--apply-update` runs before normal application/native-host startup; the relaunched application accepts the validated `--cleanup-update` route. Previously released versions copy their own executable as the old helper, which can install the migrated executable normally. No real update or external release download was executed during this audit.
+
+Rust 1.95+ and sibling source provisioning are now required; no guessed remote dependency was introduced. A plain single-repository hosted CI checkout cannot build until the shared source is provisioned. Source commits do not hand over a new distributable or overwrite the previous `dist` files.
+
+All-target Clippy, 16 Rust tests and 7 Node extension tests passed. The shared updater owns generic checksum/replacement regressions; the product regression verifies the existing `checksums.txt` release contract and rejection of an untrusted asset address. Icon/window/tray policy remains the intentional desktop-only application with no background tray process.
+
+The final optimized `target/release/website-blocker.exe` passed the finite 16.5-second diagnostic with PID **27992**. Settled visible (5.02 s), minimized (1.98 s), restored idle (3.00 s) and hidden (2.00 s) intervals each had **0 layout/raster/present** and no external input. CPU was 0% of one core for visible/restored/hidden and 0.790% for minimized (one timer-resolution CPU quantum, 0.0395% of the 20-core machine). Backend evidence combined the actual CPU raster/present source, frame counters and selected module query (`gdi32.dll` only); compositor/GPU telemetry was unavailable. Restore produced a fresh frame and the process exited within the external limit.
+
+The same final EXE's nine packaged icon resources exactly match the committed ICO. Native Win32 resource rendering was inspected on light/dark backgrounds, and its live diagnostic window returned resource-matching **16×16** window and **32×32** taskbar handles. These PNGs are resource/handle proofs, not OS screenshots. The icon/renderer interface did not otherwise change, so the existing real README app/settings images remain representative. Input latency and real OS tray/taskbar interaction remain untested under the user's no-computer-use restriction.

@@ -30,7 +30,7 @@ enum StateJob {
 }
 enum UpdateJob {
     Check,
-    Install(Update),
+    Install(Box<Update>),
 }
 enum Event {
     State(Result<State, String>, bool),
@@ -242,17 +242,16 @@ impl App {
             }
         });
         let ctx = ui_context.clone();
-        let update_store = store.clone();
         std::thread::spawn(move || {
             while let Ok(job) = update_rx.recv() {
                 let event = match job {
                     UpdateJob::Check => Event::Update(updater::check()),
                     UpdateJob::Install(update) => {
-                        let result = updater::download(&update, &update_store, |done, total| {
+                        let result = updater::download(&update, |done, total| {
                             let _ = event_tx.try_send(Event::Progress(done, total));
                             ctx.request_repaint();
                         })
-                        .and_then(|path| updater::prepare_install(&path, &update_store));
+                        .and_then(updater::prepare_install);
                         Event::Install(result)
                     }
                 };
@@ -950,7 +949,7 @@ impl App {
                 )
                 .clicked()
             {
-                self.update_job(UpdateJob::Install(update));
+                self.update_job(UpdateJob::Install(Box::new(update)));
             }
         }
         if let Some((done, total)) = self.progress {
