@@ -40,7 +40,7 @@ Closing the desktop app leaves browser schedules active. The extension refreshes
 
 ## Build and check
 
-Use Rust 1.92+ with the Windows MSVC toolchain, its existing C++ build tools, and Node 22+ for dependency-free extension tests. Build commands never launch the GUI, install the extension, register a host or run the updater.
+Use Rust 1.95+ with the Windows MSVC toolchain, its existing C++ build tools, and Node 22+ for dependency-free extension tests. Build commands never launch the GUI, install the extension, register a host or run the updater.
 
 ```powershell
 Set-Location E:\work\github\website-blocker
@@ -68,7 +68,7 @@ This is not a security boundary or an uninstall-proof lock. The machine owner ca
 
 Already loaded pages keep running until a navigation/reload; single-page-app history changes, embedded content, downloads, internal browser pages and other applications are outside this version's enforcement scope. The extension requests HTTP(S) host access to redirect selected navigations, plus declarative rules, local storage, alarms and native messaging permissions. Incognito/InPrivate requires separate consent in the browser.
 
-Settings live at `%LOCALAPPDATA%\WebsiteBlocker\state.json`. Keep a copy before manually editing. Corrupt or unsupported files are preserved and reported. Updater downloads and result logs live under `updates/`; personal settings are kept outside the EXE directory and are not replaced during updates. Update checks contact GitHub only; browser policies stay local. SHA-256 detects incomplete or corrupted assets but is not an independent publisher signature. Builds are currently unsigned.
+Settings live at `%LOCALAPPDATA%\WebsiteBlocker\state.json`. Keep a copy before manually editing. Corrupt or unsupported files are preserved and reported. The shared updater stages verified downloads in a validated `.websiteblocker-update-*` folder beside the executable; legacy installation logs may remain under `updates/`; personal settings are kept outside the EXE directory and are not replaced during updates. Update checks contact GitHub only; browser policies stay local. SHA-256 detects incomplete or corrupted assets but is not an independent publisher signature. Builds are currently unsigned.
 
 ## Screenshots
 
@@ -98,3 +98,7 @@ Native icon verification in `Check-Rendering.py` and asset regeneration with `Bu
 These are explicit GUI diagnostic commands, separate from the noninteractive build checks. The diagnostic reports actual layout/raster/present counts and CPU time. It does not certify OS input, accessibility traversal or subjective smoothness.
 
 See [architecture](docs/ARCHITECTURE.md), [manual checks and verification](docs/VERIFICATION.md), and the [current preview notes](docs/RELEASE-NOTES-v0.3.0.md). MIT-licensed; third-party dependencies retain their own licenses as declared in their pinned crate distributions.
+
+### Shared updater build dependency
+
+Keep `rust-auto-updator` beside this checkout (`../rust-auto-updator/crates/rust-auto-updator`). It now owns release discovery, throttled verified downloads, PE validation, staged replacement, rollback and cleanup; WebsiteBlocker retains its saved startup preference and existing Updates UI. This local dependency requires sibling source provisioning in hosted CI before these builds can run. Nothing is fetched from a guessed remote. Existing releases use a copy of their own executable as the old helper, which can install the migrated executable without a new helper protocol requirement.
