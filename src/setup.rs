@@ -396,12 +396,17 @@ mod tests {
             .map(|v| (b'a' + v) as char)
             .collect();
         assert_eq!(id, extension_id());
-        assert!(
-            BUNDLE_FILES
-                .iter()
-                .all(|(name, _)| !name.contains(['/', '\\']))
-        );
+        assert!(BUNDLE_FILES.iter().all(|(name, _)| {
+            !name.contains('\\')
+                && Path::new(name)
+                    .components()
+                    .all(|component| matches!(component, std::path::Component::Normal(_)))
+        }));
         assert!(BUNDLE_FILES.iter().any(|(name, _)| *name == "welcome.html"));
+        for language in ["en", "ru", "fr", "de", "es", "it"] {
+            let locale = format!("_locales/{language}/messages.json");
+            assert!(BUNDLE_FILES.iter().any(|(name, _)| *name == locale));
+        }
         for icons in [&manifest["icons"], &manifest["action"]["default_icon"]] {
             for (size, path) in icons.as_object().unwrap() {
                 let bytes = BUNDLE_FILES

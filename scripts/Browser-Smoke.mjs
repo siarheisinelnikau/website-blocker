@@ -6,6 +6,7 @@ import { mkdirSync, writeFileSync, readFileSync, renameSync, existsSync } from "
 import { resolve, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createServer } from "node:http";
+import { catalogs } from "../extension/catalog.js";
 
 const root = resolve(fileURLToPath(new URL("..", import.meta.url)));
 const browser = process.argv[2];
@@ -209,6 +210,38 @@ try {
   await navigate("focus.websiteblocker.test", "/allowed/reference", false); passed("global path allowlist wins over redirect");
   await navigate("notfocus.websiteblocker.test", "/blocked", false); passed("domain boundary does not block an unrelated suffix host");
   await navigate("focus.websiteblocker.test", "/Allowed", true); passed("path allowlist remains case-sensitive");
+  // Change only the isolated profile's cached presentation preferences.
+  // Never call native setup or alter real browser preferences for these checks.
+  await send("Emulation.setDeviceMetricsOverride", {width:390,height:844,deviceScaleFactor:1,mobile:true}, navigation.sessionId);
+  for (const [index, language] of ["en", "ru", "fr", "de", "es", "it"].entries()) {
+    for (const theme of ["light", "dark"]) {
+      await evaluate(navigation.sessionId, `(async()=>{const {policy}=await chrome.storage.local.get('policy');
+        await chrome.storage.local.set({policy:{...policy,language:${JSON.stringify(language)},theme:${JSON.stringify(theme)}}});
+        await new Promise(resolve=>setTimeout(resolve,80));})()`);
+      const appearance = await evaluate(navigation.sessionId, `({language:document.documentElement.lang,
+        theme:document.documentElement.dataset.theme,title:document.getElementById('title').innerText,
+        background:getComputedStyle(document.documentElement).backgroundColor,
+        overflow:document.documentElement.scrollWidth>innerWidth,
+        rules:document.getElementById('rules').textContent})`);
+      assert.equal(appearance.language, language);
+      assert.equal(appearance.theme, theme);
+      assert.ok(appearance.title.includes(catalogs["A little space."][index]), appearance.title);
+      assert.equal(appearance.overflow, false, `${language}/${theme}: horizontal overflow`);
+      assert.equal(appearance.background, theme === "dark" ? "rgb(23, 32, 29)" : "rgb(244, 241, 232)");
+      assert.ok(appearance.rules.includes("Browser verification"), appearance.rules);
+      if ((language === "ru" && theme === "dark") || (language === "fr" && theme === "light")) {
+        const metrics = await send("Page.getLayoutMetrics", {}, navigation.sessionId);
+        const png = await send("Page.captureScreenshot", {format:"png",captureBeyondViewport:true,
+          clip:{x:0,y:0,width:390,height:Math.ceil(metrics.cssContentSize.height),scale:1}}, navigation.sessionId);
+        writeFileSync(join(output,`blocked-${language}-${theme}.png`),Buffer.from(png.data,"base64"));
+      }
+    }
+  }
+  await evaluate(navigation.sessionId, `(async()=>{const {policy}=await chrome.storage.local.get('policy');
+    await chrome.storage.local.set({policy:{...policy,language:'en',theme:'light'}});
+    await new Promise(resolve=>setTimeout(resolve,80));})()`);
+  await send("Emulation.clearDeviceMetricsOverride", {}, navigation.sessionId);
+  passed("all six languages and both themes update live, preserve rule names and fit a 390px block page");
   if (!visualOnly) {
   const mutation = await evaluate(popup.sessionId, `chrome.runtime.sendNativeMessage('${hostName}',{protocol:1,command:'stop_focus'})`);
   assert.ok(mutation.error); passed("native host rejects browser-side state mutation");

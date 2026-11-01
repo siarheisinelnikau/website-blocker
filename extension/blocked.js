@@ -1,14 +1,16 @@
 import { initializeI18n, t } from "./i18n.js";
 
-await initializeI18n();
-
 const rules = document.getElementById("rules");
+async function renderRules() {
 try {
   const status = await chrome.runtime.sendMessage({ command: "status" });
   if (status?.active?.length) rules.textContent = t("Protected by {}", status.active.join(" · "));
 } catch {
   // The page stays useful if the extension worker is temporarily unavailable.
 }
+}
+await initializeI18n(() => { void renderRules(); });
+await renderRules();
 
 document.getElementById("back").addEventListener("click", () => {
   if (history.length > 1) history.back();

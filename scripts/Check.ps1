@@ -11,6 +11,8 @@ try {
     if ($LASTEXITCODE -ne 0) { throw 'Rust tests failed.' }
     node --test extension/tests/*.test.js
     if ($LASTEXITCODE -ne 0) { throw 'Extension tests failed.' }
+    python scripts/Build-Locales.py --check
+    if ($LASTEXITCODE -ne 0) { throw 'Browser catalogs are stale or incomplete.' }
     Get-ChildItem -LiteralPath $PSScriptRoot -Filter '*.ps1' | ForEach-Object {
         $parseErrors = $null
         [System.Management.Automation.Language.Parser]::ParseFile($_.FullName, [ref]$null, [ref]$parseErrors) | Out-Null

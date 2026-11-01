@@ -36,7 +36,7 @@ impl Language {
             Self::It => Some(4),
         }
     }
-    pub fn t<'a>(self, english: &'a str) -> &'a str {
+    pub fn t(self, english: &str) -> &str {
         self.index()
             .and_then(|index| catalog().get(english).map(|row| row[index]))
             .unwrap_or(english)
