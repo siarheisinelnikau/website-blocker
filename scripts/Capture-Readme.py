@@ -4,7 +4,6 @@ import json
 import os
 from pathlib import Path
 import subprocess
-import sys
 import time
 
 root = Path(__file__).resolve().parent.parent
