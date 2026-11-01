@@ -26,7 +26,7 @@ The browser popup, connection page and blocked page use the same language and th
 
 1. Keep `WebsiteBlocker-v0.4.0.exe` in a permanent folder and open it. The browser companion is embedded; downloading/extracting a separate ZIP is no longer required.
 2. Choose **Connect browser** from Focus or Settings, select Chrome or Edge, then **Connect Chrome/Edge**. The app prepares the companion files and per-user native registration automatically.
-3. After preparation, the wizard reveals **Open Chrome/Edge extensions** and **Copy companion folder**. For this unpublished local preview, turn on **Developer mode** in that browser page, select **Load unpacked**, paste the copied path into the folder picker’s address bar (**Ctrl+L**, paste, **Enter**), then choose **Select folder**. No command, extension ID or configuration-file edit is needed.
+3. After preparation, the wizard reveals **Open Chrome/Edge extensions** and **Copy companion folder**. For this browser companion preview, turn on **Developer mode** in that browser page, select **Load unpacked**, paste the copied path into the folder picker’s address bar (**Ctrl+L**, paste, **Enter**), then choose **Select folder**. No command, extension ID or configuration-file edit is needed.
 4. The companion opens a welcome page and connects automatically. WebsiteBlocker confirms when current rules are applied. Repeat for another browser/profile if needed.
 5. Edit **Websites**, save, then start a short flexible focus session. Before a browser is connected, the main action takes you to setup instead of starting an ineffective session.
 
@@ -79,7 +79,7 @@ Settings live at `%LOCALAPPDATA%\WebsiteBlocker\state.json`. Keep a copy before 
 
 ## Screenshots
 
-The existing desktop and browser images below show v0.3.0. Updated language/theme captures for v0.4.0 are pending the final isolated build and render check.
+The desktop images below show v0.4.0, including saved language and appearance controls. English/Light is the default; Russian/Dark demonstrates the alternate palette and Cyrillic text.
 
 Real client-area captures from the application's CPU/GDI renderer, using disposable example-domain settings at 740 × 520 pixels. Each capture saves a PNG and exits; no desktop automation is needed. Startup update checks are disabled in these fixtures only.
 
@@ -87,13 +87,17 @@ Real client-area captures from the application's CPU/GDI renderer, using disposa
 
 ![Website list editor with schedules and allowed-site sections](docs/images/rules.png)
 
-![Settings with the browser connection action and startup update preference](docs/images/settings.png)
+![Settings with language, Light and Dark controls, browser connection and update preferences](docs/images/settings.png)
+
+![Russian settings with the saved dark theme](docs/images/settings-ru-dark.png)
 
 ![First step of the in-app Chrome and Edge connection wizard](docs/images/browser.png)
 
 Real Chrome rendering of the local companion’s block page (no external fonts or images):
 
 ![Blocked website page with the active list and focus actions](docs/images/blocked.png)
+
+![Russian blocked page in the dark theme at a narrow phone width](docs/images/blocked-ru-dark.png)
 
 For a bounded developer capture after applying the rendering gate:
 

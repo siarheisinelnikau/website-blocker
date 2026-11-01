@@ -115,7 +115,7 @@ assert (product_ms >> 16, product_ms & 65535, product_ls >> 16, product_ls & 655
 with zipfile.ZipFile(dist / zip_name) as archive:
     assert archive.testzip() is None
     names = {name.replace("\\", "/") for name in archive.namelist()}
-    for required in ("extension/manifest.json", "extension/background.js", "extension/engine.js", "extension/blocked.html", "extension/blocked.css", "extension/welcome.html", "extension/welcome.js", "extension/identity.txt",
+    for required in ("extension/manifest.json", "extension/background.js", "extension/engine.js", "extension/catalog.js", "extension/i18n.js", "extension/blocked.html", "extension/blocked.css", "extension/welcome.html", "extension/welcome.js", "extension/identity.txt",
                      "scripts/Register-NativeHost.ps1", "scripts/Unregister-NativeHost.ps1", "docs/BROWSER-SETUP.md", "README.md", "LICENSE",
                      "docs/images/focus.png", "docs/images/rules.png", "docs/images/settings.png", "docs/images/browser.png",
                      "docs/images/blocked.png", "docs/images/icon-resources.png", "docs/images/icon-assignment.png",
@@ -123,6 +123,10 @@ with zipfile.ZipFile(dist / zip_name) as archive:
         assert required in names, f"Missing companion file: {required}"
     extension = json.loads(archive.read("extension/manifest.json"))
     assert extension["version"] == version
+    assert extension["default_locale"] == "en"
+    for language in ("en", "ru", "fr", "de", "es", "it"):
+        locale = json.loads(archive.read(f"extension/_locales/{language}/messages.json"))
+        assert locale["extensionName"]["message"] and locale["extensionDescription"]["message"]
     for icons in (extension["icons"], extension["action"]["default_icon"]):
         for size, path in icons.items():
             pixels = archive.read(f"extension/{path}")

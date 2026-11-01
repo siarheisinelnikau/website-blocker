@@ -1,4 +1,5 @@
 """One bounded diagnostic launch; no computer use or injected user input."""
+import argparse
 import json
 import os
 from pathlib import Path
@@ -8,7 +9,12 @@ import time
 
 root = Path(__file__).resolve().parent.parent
 version = json.loads((root / "extension/manifest.json").read_text(encoding="utf-8"))["version"]
-exe = Path(sys.argv[1]).resolve() if len(sys.argv) > 1 else root / f"dist/WebsiteBlocker-v{version}.exe"
+parser = argparse.ArgumentParser()
+parser.add_argument("exe", nargs="?")
+parser.add_argument("--theme", choices=["light", "dark"], default="light")
+parser.add_argument("--language", choices=["en", "ru", "fr", "de", "es", "it"], default="en")
+args = parser.parse_args()
+exe = Path(args.exe).resolve() if args.exe else root / f"dist/WebsiteBlocker-v{version}.exe"
 fixture = root / ".test-output/rendering-gate"
 data = fixture / "data"
 data.mkdir(parents=True, exist_ok=True)
@@ -17,7 +23,7 @@ report = fixture / "report.json"
     "schema": 1, "revision": 0,
     "groups": [{"id": 1, "name": "Distractions", "enabled": True,
                 "patterns": [{"domain": "example.com", "subdomains": True, "path_prefix": "/"}], "schedules": []}],
-    "allowlist": [], "focus": None, "pause_until": 0, "next_break": 0, "startup_updates": False,
+    "allowlist": [], "focus": None, "pause_until": 0, "next_break": 0, "startup_updates": False, "language": args.language, "theme": args.theme,
 }), encoding="utf-8")
 env = os.environ.copy()
 env.pop("WEBSITEBLOCKER_CAPTURE", None)

@@ -26,6 +26,14 @@ use website_blocker::{
 };
 
 fn apply_theme(ctx: &egui::Context, theme: Theme) {
+    ctx.set_theme(match theme {
+        Theme::Light => egui::Theme::Light,
+        Theme::Dark => egui::Theme::Dark,
+    });
+    ctx.send_viewport_cmd(egui::ViewportCommand::SetTheme(match theme {
+        Theme::Light => egui::SystemTheme::Light,
+        Theme::Dark => egui::SystemTheme::Dark,
+    }));
     let mut visuals = egui::Visuals::light();
     visuals.panel_fill = Color32::from_rgb(244, 247, 244);
     visuals.override_text_color = Some(Color32::from_rgb(28, 54, 45));
@@ -200,7 +208,7 @@ pub struct App {
 impl App {
     pub fn with_context(ui_context: &egui::Context, store: Store) -> Self {
         apply_theme(ui_context, Theme::Light);
-        ui_context.style_mut(|style| {
+        ui_context.all_styles_mut(|style| {
             style
                 .text_styles
                 .insert(egui::TextStyle::Body, egui::FontId::proportional(15.0));
@@ -1219,6 +1227,42 @@ mod tests {
         assert_eq!(parse_time("23:59").unwrap(), 1439);
         for value in ["24:00", "12:60", "noon", "-1:00"] {
             assert!(parse_time(value).is_err());
+        }
+    }
+
+    #[test]
+    fn saved_theme_and_typography_survive_opposite_system_theme_events() {
+        std::fs::create_dir_all(".test-output").unwrap();
+        let temp = tempfile::tempdir_in(".test-output").unwrap();
+        let store = Store {
+            dir: temp.path().into(),
+        };
+        store
+            .apply(Change::StartupUpdates(false), Utc::now().timestamp())
+            .unwrap();
+        let context = egui::Context::default();
+        let mut app = App::with_context(&context, store);
+        settle(&mut app, &context);
+        for (saved, system) in [
+            (Theme::Dark, egui::Theme::Light),
+            (Theme::Light, egui::Theme::Dark),
+        ] {
+            app.submit(StateJob::Apply(Change::Appearance {
+                language: Language::En,
+                theme: saved,
+            }));
+            settle(&mut app, &context);
+            let _ = context.run(
+                egui::RawInput {
+                    system_theme: Some(system),
+                    ..Default::default()
+                },
+                |ctx| {
+                    assert_eq!(ctx.style().visuals.dark_mode, saved == Theme::Dark);
+                    assert_eq!(ctx.style().text_styles[&egui::TextStyle::Body].size, 15.0);
+                    assert_eq!(ctx.style().spacing.interact_size.y, 34.0);
+                },
+            );
         }
     }
 }
