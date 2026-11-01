@@ -14,3 +14,9 @@ button { background: #215c52; color: white; border: none; padding: 12px 18px; bo
 button:hover { background: #153c36; } button:disabled { opacity: .5; }
 button:focus-visible, summary:focus-visible { outline: 3px solid #b5a340; outline-offset: 3px; }
 .symbol { font-size: 80px; margin-top: 30px; color: #a29b46; }
+:root[data-theme="dark"] { color-scheme: dark; color: #e1eee5; background: #17201d; }
+:root[data-theme="dark"] .muted { color: #b1c4b7; }
+:root[data-theme="dark"] #error { color: #ff9789; }
+:root[data-theme="dark"] button { background: #317459; color: #fff; }
+:root[data-theme="dark"] button:hover { background: #3d8c6b; }
+button { white-space: normal; overflow-wrap: anywhere; }

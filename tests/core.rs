@@ -100,6 +100,60 @@ fn policy_preserves_precise_session_expiry_and_breaks() {
 }
 
 #[test]
+fn legacy_settings_migrate_and_appearance_survives_rules_and_policy_sync() {
+    use website_blocker::i18n::{Language, Theme};
+    let mut legacy = serde_json::to_value(State::default()).unwrap();
+    legacy.as_object_mut().unwrap().remove("language");
+    legacy.as_object_mut().unwrap().remove("theme");
+    let migrated: State = serde_json::from_value(legacy).unwrap();
+    assert_eq!(migrated.language, Language::En);
+    assert_eq!(migrated.theme, Theme::Light);
+
+    std::fs::create_dir_all(".test-output").unwrap();
+    let temp = tempfile::tempdir_in(".test-output").unwrap();
+    let store = Store {
+        dir: temp.path().into(),
+    };
+    let saved = store
+        .apply(
+            Change::Appearance {
+                language: Language::Ru,
+                theme: Theme::Dark,
+            },
+            1000,
+        )
+        .unwrap();
+    assert_eq!(saved.groups[0].name, "Distractions");
+    store
+        .apply(
+            Change::Start {
+                group_id: 1,
+                minutes: 25,
+                locked: true,
+            },
+            1001,
+        )
+        .unwrap();
+    store
+        .apply(
+            Change::Appearance {
+                language: Language::De,
+                theme: Theme::Light,
+            },
+            1002,
+        )
+        .unwrap();
+    let loaded = store.load().unwrap();
+    assert_eq!(loaded.language, Language::De);
+    assert_eq!(loaded.theme, Theme::Light);
+    assert!(loaded.locked(1002));
+    let policy = loaded.policy(at("2026-10-31T09:00:17Z"));
+    assert_eq!(policy.language, Language::De);
+    assert_eq!(policy.theme, Theme::Light);
+    assert_eq!(policy.groups[0].name, "Distractions");
+}
+
+#[test]
 fn browser_regex_capacity_is_checked_across_all_lists() {
     let mut state = State::default();
     let template = state.groups[0].clone();

@@ -1,0 +1,8 @@
+{
+  "extensionName": {
+    "message": "Componente WebsiteBlocker"
+  },
+  "extensionDescription": {
+    "message": "Applica le regole e gli orari locali di WebsiteBlocker alla navigazione web."
+  }
+}

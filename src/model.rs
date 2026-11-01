@@ -1,3 +1,4 @@
+use crate::i18n::{Language, Theme};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use url::Url;
@@ -181,6 +182,10 @@ pub struct State {
     pub pause_until: i64,
     pub next_break: i64,
     pub startup_updates: bool,
+    #[serde(default)]
+    pub language: Language,
+    #[serde(default)]
+    pub theme: Theme,
 }
 
 impl Default for State {
@@ -200,6 +205,8 @@ impl Default for State {
             pause_until: 0,
             next_break: 0,
             startup_updates: true,
+            language: Language::default(),
+            theme: Theme::default(),
         }
     }
 }
@@ -327,6 +334,10 @@ pub struct Policy {
     pub groups: Vec<PolicyGroup>,
     pub focus: Option<Focus>,
     pub pause_until: i64,
+    #[serde(default)]
+    pub language: Language,
+    #[serde(default)]
+    pub theme: Theme,
 }
 
 impl State {
@@ -352,6 +363,8 @@ impl State {
                 .collect(),
             focus: self.focus.clone(),
             pause_until: self.pause_until,
+            language: self.language,
+            theme: self.theme,
         }
     }
 }

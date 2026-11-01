@@ -1,4 +1,7 @@
-use crate::model::{Group, Pattern, State};
+use crate::{
+    i18n::{Language, Theme},
+    model::{Group, Pattern, State},
+};
 use fs2::FileExt;
 use serde::{Deserialize, Serialize};
 use std::{
@@ -46,6 +49,10 @@ pub enum Change {
     Stop(String),
     Break(String),
     StartupUpdates(bool),
+    Appearance {
+        language: Language,
+        theme: Theme,
+    },
     Resume,
 }
 
@@ -117,6 +124,10 @@ impl Store {
             Change::Stop(phrase) => state.stop_focus(&phrase, now)?,
             Change::Break(phrase) => state.take_break(&phrase, now)?,
             Change::StartupUpdates(value) => state.startup_updates = value,
+            Change::Appearance { language, theme } => {
+                state.language = language;
+                state.theme = theme;
+            }
             Change::Resume => state.pause_until = 0,
         }
         state.validate()?;
