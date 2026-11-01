@@ -1,0 +1,8 @@
+{
+  "product": "WebsiteBlocker",
+  "notes": "docs/localization-release.md",
+  "additionalAssets": [
+    "WebsiteBlocker-Companion-v{version}.zip"
+  ],
+  "checksumName": "checksums.txt"
+}
