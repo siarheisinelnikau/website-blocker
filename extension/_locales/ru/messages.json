@@ -1,0 +1,8 @@
+{
+  "extensionName": {
+    "message": "Расширение WebsiteBlocker"
+  },
+  "extensionDescription": {
+    "message": "Применяет локальные правила фокусировки и расписания WebsiteBlocker при переходах по сайтам."
+  }
+}

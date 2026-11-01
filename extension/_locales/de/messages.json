@@ -1,0 +1,8 @@
+{
+  "extensionName": {
+    "message": "WebsiteBlocker-Erweiterung"
+  },
+  "extensionDescription": {
+    "message": "Wendet lokale WebsiteBlocker-Fokusregeln und Zeitpläne auf Webseitenaufrufe an."
+  }
+}

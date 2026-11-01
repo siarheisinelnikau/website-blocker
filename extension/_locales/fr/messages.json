@@ -1,0 +1,8 @@
+{
+  "extensionName": {
+    "message": "Compagnon WebsiteBlocker"
+  },
+  "extensionDescription": {
+    "message": "Applique les règles et horaires locaux WebsiteBlocker aux navigations web."
+  }
+}

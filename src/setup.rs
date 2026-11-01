@@ -22,6 +22,32 @@ pub const BUNDLE_FILES: &[(&str, &[u8])] = &[
         include_bytes!("../extension/background.js"),
     ),
     ("engine.js", include_bytes!("../extension/engine.js")),
+    ("catalog.js", include_bytes!("../extension/catalog.js")),
+    ("i18n.js", include_bytes!("../extension/i18n.js")),
+    (
+        "_locales/en/messages.json",
+        include_bytes!("../extension/_locales/en/messages.json"),
+    ),
+    (
+        "_locales/ru/messages.json",
+        include_bytes!("../extension/_locales/ru/messages.json"),
+    ),
+    (
+        "_locales/fr/messages.json",
+        include_bytes!("../extension/_locales/fr/messages.json"),
+    ),
+    (
+        "_locales/de/messages.json",
+        include_bytes!("../extension/_locales/de/messages.json"),
+    ),
+    (
+        "_locales/es/messages.json",
+        include_bytes!("../extension/_locales/es/messages.json"),
+    ),
+    (
+        "_locales/it/messages.json",
+        include_bytes!("../extension/_locales/it/messages.json"),
+    ),
     ("popup.html", include_bytes!("../extension/popup.html")),
     ("popup.js", include_bytes!("../extension/popup.js")),
     ("blocked.html", include_bytes!("../extension/blocked.html")),
@@ -188,6 +214,9 @@ pub fn prepare(
     std::fs::create_dir_all(&folder).map_err(|e| e.to_string())?;
     for (name, bytes) in BUNDLE_FILES {
         let path = folder.join(name);
+        if let Some(parent) = path.parent() {
+            std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+        }
         if read_limited(&path, 1_048_576).ok().as_deref() != Some(*bytes) {
             atomic_write(&path, bytes)?;
         }

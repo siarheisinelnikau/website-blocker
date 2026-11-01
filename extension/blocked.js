@@ -1,7 +1,11 @@
+import { initializeI18n, t } from "./i18n.js";
+
+await initializeI18n();
+
 const rules = document.getElementById("rules");
 try {
   const status = await chrome.runtime.sendMessage({ command: "status" });
-  if (status?.active?.length) rules.textContent = `Protected by ${status.active.join(" · ")}`;
+  if (status?.active?.length) rules.textContent = t("Protected by {}", status.active.join(" · "));
 } catch {
   // The page stays useful if the extension worker is temporarily unavailable.
 }
@@ -42,7 +46,7 @@ function stopBreathing(text = "No rush. Just one intentional next step.") {
   timers = [];
   document.body.classList.remove("breathing");
   breathe.setAttribute("aria-pressed", "false");
-  message.textContent = text;
+  message.textContent = t(text);
 }
 breathe.addEventListener("click", () => {
   if (timers.length) return stopBreathing();
@@ -51,10 +55,10 @@ breathe.addEventListener("click", () => {
   ["Breathe in. Let your shoulders soften.", "Breathe out. You have time.",
     "One more breath in. Just be here.", "And breathe out. One thing at a time.",
     "A little clearer. Choose your next small step."].forEach((text, index) => {
-    if (!index) message.textContent = text;
+    if (!index) message.textContent = t(text);
     else timers.push(setTimeout(() => {
       if (index === 4) stopBreathing(text);
-      else message.textContent = text;
+      else message.textContent = t(text);
     }, index * 3000));
   });
 });
