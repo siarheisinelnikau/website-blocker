@@ -1,0 +1,41 @@
+name: Checked release builds
+'on':
+  workflow_call: {}
+permissions:
+  contents: read
+env:
+  CARGO_BUILD_JOBS: '2'
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      with:
+        persist-credentials: false
+    - name: Provision shared updater source
+      shell: pwsh
+      run: ./scripts/provision-shared-updater.ps1
+    - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec
+      with:
+        components: rustfmt, clippy
+        toolchain: stable
+    - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+      with:
+        node-version: '22'
+    - name: Fetch locked dependencies
+      run: cargo fetch --locked
+    - name: Noninteractive checks
+      shell: pwsh
+      run: ./scripts/Check.ps1
+    - name: Package without publishing
+      shell: pwsh
+      run: ./scripts/Package.ps1 -Offline
+    - name: Inspect packaged files without executing them
+      run: python scripts/Inspect-Package.py
+    - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+      with:
+        name: WebsiteBlocker-Windows
+        path: dist/*
+    permissions:
+      contents: read
+    timeout-minutes: 30
