@@ -1,0 +1,17 @@
+{
+  "repository": "siarheisinelnikau/website-blocker",
+  "product": "WebsiteBlocker",
+  "kind": "desktop",
+  "assets": [
+    {
+      "name": "WebsiteBlocker-Companion-v{version}.zip"
+    },
+    {
+      "name": "WebsiteBlocker-v{version}.exe"
+    }
+  ],
+  "notices": true,
+  "checksum_aliases": [
+    "checksums.txt"
+  ]
+}
