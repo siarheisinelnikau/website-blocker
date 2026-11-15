@@ -9,6 +9,14 @@
   --px: 0px;
   --py: 0px;
 }
+.hero-art .focus-scene { width:100%; height:390px; transform:translate(var(--px),var(--py)); transition:transform .3s ease-out; }
+.hero-art { min-height:390px; }
+.focus-receipt { display:grid; grid-template-columns:1fr 1fr 2fr auto; align-items:center; gap:32px; padding:24px 0; border-bottom:1px solid #b3bba644; }
+.focus-receipt>div { display:flex; flex-direction:column; gap:6px; }.focus-receipt strong { font-size:32px; font-weight:450; font-variant-numeric:tabular-nums; }.focus-receipt span { font-size:11px; color:var(--muted); }.focus-receipt .receipt-sites>span { font-size:9px; letter-spacing:1.8px; }.receipt-sites p { font-size:12px; line-height:1.7; margin:0; overflow-wrap:anywhere; }.focus-receipt a,footer a { font-size:11px; color:var(--forest); text-underline-offset:4px; }.replay { padding:0; border:0; background:transparent; color:var(--muted); cursor:pointer; font-size:10px; opacity:.75; }
+:root[data-theme="dark"] { --scene-card:#263d31ed; }
+.breathing .focus-core { animation:core-breathe 6s ease-in-out 2; }@keyframes core-breathe { 50% { scale:1.15; } }
+@media(max-width:700px) { .focus-receipt { grid-template-columns:1fr 1fr; gap:20px; }.receipt-sites { grid-column:1/-1; }.hero-art .focus-scene { height:340px; }.hero-art { min-height:340px; } }
+@media(prefers-reduced-motion:reduce) { .hero-art .focus-scene { transform:none!important; transition:none!important; } }
 * { box-sizing: border-box; }
 body { margin: 0; background: radial-gradient(ellipse at 82% 38%, #e9eade 0, transparent 46%); }
 button, a { -webkit-tap-highlight-color: transparent; }

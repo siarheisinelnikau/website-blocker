@@ -1,43 +1,42 @@
-# Connect Chrome or Edge from WebsiteBlocker
+# Chrome and Edge setup
 
-The EXE contains the companion. Use the connection wizard; no terminal commands, extension-ID copying, manual native manifest or registry editing are required.
+## Extension only
 
-1. Keep the EXE in a permanent folder. Open **Settings → Connect browser**, or the **Connect browser to start** action on Focus.
-2. Select **Chrome** or **Edge**, then **Connect Chrome/Edge**. WebsiteBlocker extracts its included companion into its own data directory and registers its native host for the current Windows user. No administrator access is requested.
-3. Select **Open Chrome/Edge extensions**, then **Copy companion folder** in the wizard. In the browser's extension page, enable **Developer mode**, choose **Load unpacked**, and paste that copied directory into the folder picker’s address bar (Ctrl+L, paste, Enter), then choose Select folder. The wizard displays the verified path as well.
-4. The companion opens its welcome page and applies the current rules. The desktop checks for confirmation automatically while setup is open. If needed, use **Check connection** on the companion welcome page, then **Check connection** in the desktop wizard.
-5. When the wizard confirms the connection, select **Go to Focus**. Repeat in other browser profiles where blocking is wanted. A connection in one profile does not enable the companion in every profile.
+1. Extract `WebsiteBlocker-Companion-v0.5.0.zip` into a permanent folder.
+2. Open `chrome://extensions` or `edge://extensions`, enable **Developer mode**, choose **Load unpacked** and select the extracted `extension` directory.
+3. Use the toolbar popup's **Open focus studio** action. **Websites** manages lists, exceptions and recurring schedules. **Focus** starts sessions and provides deliberate breaks/stopping. **Activity** shows local blocked visits. **Settings** controls language, theme and optional desktop synchronization.
 
-## Why one browser step remains in this preview
+The EXE is unnecessary for every browser workflow above. Native-host unavailability does not show an enforcement failure: local rules continue working. Keep the extension folder in place. An unpacked update means replacing its files and choosing **Reload** on the browser card; preserve the extension identity to retain settings.
 
-The extension has not been published in Chrome Web Store or Edge Add-ons. On Windows, ordinary Chrome external installation must come from the Chrome Web Store and the user must consent in the browser. The preview therefore uses the browser's supported unpacked-extension flow. The app does not change browser preferences, install by enterprise policy, use unsafe debugging flags in normal operation or silently enable extensions. A normal store installation flow requires a real published store listing; no fake listing or unavailable Install button is provided.
+The preview is not in Chrome Web Store or Edge Add-ons. Installation/consent cannot be silently completed by the desktop app. Normal operation does not change browser preferences, use enterprise policies, enable Developer mode, use DevTools flags or install an extension behind your back.
 
-Primary references: [Chrome extension distribution](https://developer.chrome.com/docs/extensions/how-to/distribute/install-extensions), [Edge extension distribution](https://learn.microsoft.com/en-us/microsoft-edge/extensions/developer-guide/alternate-distribution-options), [native messaging](https://developer.chrome.com/docs/extensions/develop/concepts/native-messaging), [stable development identity](https://developer.chrome.com/docs/extensions/reference/manifest/key).
+## Add the optional desktop app
 
-## What the app prepares
+1. Keep `WebsiteBlocker-v0.5.0.exe` in a permanent folder. Open **Settings → Connect browser**, select Chrome or Edge, and choose **Connect Chrome/Edge**.
+2. If the same extension is already installed, keep it. In extension **Settings**, choose **Sync with desktop**. For a new install, the wizard's **Open extensions** and **Copy companion folder** actions guide you through the browser's **Load unpacked** step. Do not enable duplicate copies.
+3. If both sides contain independent changes, extension **Settings** shows both list summaries. Choose **Use browser settings** or **Use desktop settings**. The two original copies are retained locally as a sync backup after a choice. Active locked sessions cannot be shortened by choosing another copy.
+4. The desktop confirms readiness only after current rules are applied by the extension. The extension synchronizes periodically, normally every 30 seconds while awake; use **Sync with desktop** for an immediate attempt.
 
-Companion files are kept in `%LOCALAPPDATA%\WebsiteBlocker\browser-companion\extension`. The public preview manifest key keeps its extension ID stable across extraction paths. This public key is not a credential; store publication must use the eventual store identity and migrate allowed origins deliberately.
+Lists, allowlists, schedules, timers, breaks, language and theme travel both ways. Profile-specific attempt counters are mirrored to the desktop and aggregated there. The desktop update preference remains desktop-only. Closing or deleting the EXE does not disable browser blocking or local editing.
 
-Native manifests live under `%LOCALAPPDATA%\WebsiteBlocker\native\Chrome.json` or `Edge.json`. Only the exact per-user native-host default value is registered, under Google\Chrome or Microsoft\Edge. Other browser settings/profiles are untouched. Preparation is repeatable, preserves rules/focus settings and retains valid existing origins from this app's own manifests for migration. A foreign or invalid registration is preserved and reported rather than overwritten blindly.
+## Preparation and storage
 
-The connection label is based on a recent, version-matched applied-rule report from the browser, not merely a written registry value or native snapshot request. A connected profile can show that recent rule changes are still syncing. An application error or missing/stale report is not shown as current-rule readiness. Reports contain revision/version/status, not browsing history or visited URLs.
+The EXE embeds all extension runtime assets. Preparation writes them under `%LOCALAPPDATA%\WebsiteBlocker\browser-companion\extension` and writes a native manifest under `native\Chrome.json` or `native\Edge.json`. It registers only the exact current-user native-host value. No administrator permission is required. Existing foreign/invalid registrations are preserved and reported. The public manifest key stabilizes the preview's extension identity across folders; it is not a credential.
+
+Browser settings/counters remain in that profile's `chrome.storage.local`; desktop settings are in `state.json`. Atomic native writes include revision checks. Unsaved desktop website drafts survive incoming browser edits; stale drafts must be explicitly reloaded before saving. Only configured domains and counts are saved as activity, never full visited URLs or page contents.
 
 ## Troubleshooting
 
-- **Old preview already added:** disable/remove that earlier WebsiteBlocker copy before loading the managed companion folder. Keep one enabled copy per profile. Older path-derived IDs differ from the new fixed preview identity.
-- **Files prepared but not connected:** finish the browser step, ensure the companion is enabled in the intended profile, and use its welcome-page Check connection action. Native sync normally occurs within about 30 seconds while the browser is awake.
-- **Already loaded the managed companion:** reload its card in the browser after preparing updated files. Local unpacked-extension updates still require that browser action; store-managed updates are not available yet.
-- **EXE moved:** run the current copy, open the wizard and choose **Prepare connection again** under repair. This updates the native path without editing files.
-- **Browser closed:** open it; its startup sync will renew the connection report. Cached schedules remain local to profiles with the extension enabled.
-- **Unknown timezone or rule error:** correct the schedule/list in WebsiteBlocker and sync again. The last usable cached policy continues until its expiry; the UI reports the failure.
-- **Stop browser enforcement:** disable/remove the companion in that browser profile. Removing only native registration would leave a valid cached policy until it expires, so the wizard does not present that as an immediate Stop action.
+- **No EXE:** expected and supported. Use the extension studio; connection status is informational.
+- **EXE exists but sync is unavailable:** prepare this browser in desktop Settings first. File presence alone cannot grant Chrome native-messaging permission. If you moved the EXE, choose **Prepare connection again** in the wizard.
+- **Independent edits:** use the conflict choices in extension Settings. The popup also points to these settings. No latest-clock-wins rule silently discards a copy.
+- **Old v0.4 cache:** connect the updated desktop once to migrate editable source settings. Until then, the old cached policy retains its original timer and expiry; it is never silently replaced by empty lists.
+- **Browser rule/schedule error:** correct the draft and save again. Invalid timezone/RE2 rules are rejected before replacing the last usable local settings.
+- **Stop enforcement:** deliberately end/pause a flexible session in the studio, edit schedules, or disable/remove the extension. Removing native registration alone does not stop browser rules.
+- **Browser sleep:** alarms may run late. An open page is not forcibly closed when its site becomes blocked; navigation/reload triggers enforcement.
 
-Settings and rule files are outside the EXE directory and survive connection preparation. Private/Incognito mode requires separate browser consent. This is voluntary blocking, not a security boundary.
+Incognito/InPrivate requires separate browser consent. Firefox remains unsupported.
 
-## Developer verification
+## Developer checks
 
-The production setup backend is tested with a fake registry and isolated files. `examples/prepare-connection.rs` exercises the same backend headlessly for opt-in live fixtures. After building that example, `node scripts/Browser-Smoke.mjs Chrome --headless --managed` (or Edge) tests the embedded extraction, real per-user Rust registration, applied-rule status and navigation enforcement. It uses disposable profiles, backs up/restores the exact native-host value and never uses regular profiles or credentials. These opt-in live tests are separate from Check.ps1 and CI. Legacy PowerShell setup scripts remain developer/backward-compatibility tools; the consumer workflow does not require them.
-
-Firefox remains unsupported: it needs a reviewed manifest/API adaptation, Mozilla native-host registration and tested rule semantics.
-
-For block-page visual checks without replacing an existing native registration, use `node scripts/Browser-Smoke.mjs Chrome --headless --visual` (or Edge). It obtains a real EXE snapshot directly using isolated state, applies it through the extension engine in a disposable profile, and checks actual DNR navigation, page controls, motion preferences and responsive layouts. This fixture does not certify browser-to-native registration transport.
+`node scripts/Browser-Standalone.mjs Chrome` (or `Edge`) checks the real extension in a headless disposable profile: missing-EXE enforcement, real DNR navigations, reload deduplication, editor saving, six languages, both themes, finite/reduced motion, native two-way sync, conflict resolution and lock protection. It temporarily replaces the exact native-host registration with a backed-up test manifest and restores it in `finally`. The data directory, web server and domains are artificial and isolated. Run only one fixture for a given browser registration at a time. `Check.ps1` runs noninteractive unit/structure tests without a browser or registration changes.

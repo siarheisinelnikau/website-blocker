@@ -121,6 +121,8 @@ with zipfile.ZipFile(dist / zip_name) as archive:
                      "docs/images/blocked.png", "docs/images/icon-resources.png", "docs/images/icon-assignment.png",
                      "assets/website-blocker.ico", "assets/website-blocker.svg"):
         assert required in names, f"Missing companion file: {required}"
+    for name in ("state.js", "dashboard.html", "dashboard.js", "studio.css", "motion.js", "motion.css"):
+        assert f"extension/{name}" in names, f"Missing standalone runtime asset: {name}"
     extension = json.loads(archive.read("extension/manifest.json"))
     assert extension["version"] == version
     assert extension["default_locale"] == "en"

@@ -1,38 +1,30 @@
 # WebsiteBlocker
 
-A local, voluntary focus tool for websites. Manage website lists, recurring schedules and timed focus sessions in a Rust desktop app; a Chromium Manifest V3 companion enforces navigation rules in the browser. Independent implementation, with no affiliation to Cold Turkey and no copied code or assets.
+A local, voluntary focus tool for Chrome and Edge. **The extension works on its own. The Windows EXE is optional.** Manage website lists, allowlists, recurring schedules, focus timers and deliberate breaks directly in your browser. Connect the desktop app if you want the same settings on both sides.
 
-**Status: Windows x64 preview.** The desktop uses CPU rasterization and Windows GDI. Version 0.4.0 adds six interface languages and saved light/dark themes for the desktop and browser companion. Verification evidence and its limits are recorded in [verification notes](docs/VERIFICATION.md); ordinary OS input, perceived smoothness and real update installation still need a user check.
+**Version 0.5.0 · Windows x64 desktop preview · Chromium Manifest V3 extension.** Independent implementation with no affiliation to Cold Turkey and no copied code or assets.
+
+## Start without an EXE
+
+1. Extract `WebsiteBlocker-Companion-v0.5.0.zip` into a permanent folder.
+2. Open `chrome://extensions` (or `edge://extensions`), turn on **Developer mode**, choose **Load unpacked**, and select the extracted **extension** folder.
+3. Open WebsiteBlocker from the browser toolbar and choose **Open focus studio**. The studio also opens after first installation.
+4. In **Websites**, edit a list and choose **Save website rules**. Start a timer in **Focus**, or add a recurring schedule to your list.
+
+No Windows app, native registration, local server, account or network request is required for browser blocking. The preview is not published in Chrome Web Store or Edge Add-ons yet, so browser installation is an explicit unpacked-extension step. Keep the extension folder in place; browser settings and counters live in the profile's extension storage.
 
 ## What it does
 
-- Up to 20 named website lists with 50 domain or path-prefix patterns each (1,000 patterns total, including allowed websites). Plain domains include subdomains; `=example.com` matches only that host. International domain names normalize to ASCII.
-- A global allowlist, taking priority over all active block lists.
-- Focus timers from 1 to 240 minutes. Flexible sessions permit deliberate early stopping; locked sessions protect rule edits, breaks and early stopping until the timer ends.
-- Recurring weekday schedules in named IANA timezones, with overnight ranges and daylight-saving transitions handled by the browser's `Intl` database.
-- Five-minute breaks, at most once per 30 minutes, requiring the phrase `TAKE A BREAK`. Ending a flexible session requires `END FOCUS`; scheduled blocks continue independently.
-- A custom offline block page with active-rule information, event-driven parallax, a finite breathing exercise and reduced-motion support; an extension popup with applied rule status and connection errors, and per-user native messaging without a local web server.
-- **Settings → Connect browser** prepares the embedded companion and native registration. No PowerShell, JSON/registry editing or extension-ID entry is required. The wizard confirms rules were actually applied before reporting readiness.
-- Local JSON settings with validation, atomic replacement, bounded reads, writer locking and stale-edit protection. Browsing history and requested URLs are not stored.
-- Settings → Updates shows the installed version, manual **Check for updates**, a persistent startup-check toggle (on by default), and user-initiated **Download and install** with progress, SHA-256 checking and a restart helper. Updates require an official compatible asset and `checksums.txt`; unavailable releases are reported truthfully.
+- Up to 20 named lists, with 50 domain or path-prefix patterns per list and a global allowlist. The combined limit is 1,000 patterns. Plain domains include subdomains; `=example.com` matches only that host. International domains normalize to ASCII.
+- Focus timers from 1 to 240 minutes. Flexible sessions allow deliberate stopping. Locked sessions protect rules, early stopping and breaks until their original timer ends.
+- Recurring weekday schedules in named IANA timezones, including overnight ranges and daylight-saving transitions. Rules remain available without a desktop sync; the browser refreshes its own policy rather than expiring it after eight days.
+- Five-minute breaks, at most once per 30 minutes, requiring `TAKE A BREAK`. Ending a flexible session requires `END FOCUS`; scheduled blocks continue independently.
+- An offline block page with a dimensional shield, incoming website tiles, impact rings, particles, a drawn checkmark, pointer parallax, a breathing exercise and a replay action. Motion is finite, stops when the tab is hidden and respects reduced-motion preferences.
+- Real blocked-visit counters, today's count, top configured domains and 30 recent attempts. Reloading the block page does not count again. These measure blocked visits; the app does not invent hours saved or productivity scores.
+- Desktop arrival/section transitions, spring motion, website interception and two-way packet animation on the Chrome/Edge connection page. The CPU/GDI renderer stops producing frames after transitions settle. Windows' client-area animation preference is respected.
+- Six interface languages: English, Русский, Français, Deutsch, Español and Italiano. Light and dark themes are saved and synchronized. Personal list names and website addresses remain unchanged.
 
-## Language and appearance
-
-Open **Settings → Appearance** to choose **English, Русский, Français, Deutsch, Español, or Italiano**, then **Light** or **Dark**. Changes apply immediately and are saved locally. Existing installations retain their website lists, schedules, focus sessions and update preference; earlier settings default to English and Light.
-
-The browser popup, connection page and blocked page use the same language and theme after the next companion sync (normally within 30 seconds; use **Sync with desktop** for an immediate refresh). Extension name/description in the browser's extension manager follow the browser language. Personal list names, website addresses, timezones, file paths and diagnostic details remain unchanged. The deliberate confirmation phrases `TAKE A BREAK` and `END FOCUS` stay the same in every language.
-
-## Connect and use
-
-1. Keep `WebsiteBlocker-v0.4.0.exe` in a permanent folder and open it. The browser companion is embedded; downloading/extracting a separate ZIP is no longer required.
-2. Choose **Connect browser** from Focus or Settings, select Chrome or Edge, then **Connect Chrome/Edge**. The app prepares the companion files and per-user native registration automatically.
-3. After preparation, the wizard reveals **Open Chrome/Edge extensions** and **Copy companion folder**. For this browser companion preview, turn on **Developer mode** in that browser page, select **Load unpacked**, paste the copied path into the folder picker’s address bar (**Ctrl+L**, paste, **Enter**), then choose **Select folder**. No command, extension ID or configuration-file edit is needed.
-4. The companion opens a welcome page and connects automatically. WebsiteBlocker confirms when current rules are applied. Repeat for another browser/profile if needed.
-5. Edit **Websites**, save, then start a short flexible focus session. Before a browser is connected, the main action takes you to setup instead of starting an ineffective session.
-
-**Preview distribution limit:** the companion is not published in Chrome Web Store or Edge Add-ons yet. The browser installation/consent step cannot be silently completed by the desktop app; Chrome on Windows requires store distribution for ordinary external installation. The app does not change browser preferences, use policies, enable Developer mode or install an extension without the browser step. See [browser setup and troubleshooting](docs/BROWSER-SETUP.md).
-
-Example pattern list:
+Example website patterns:
 
 ```text
 example.com
@@ -40,78 +32,88 @@ example.com
 news.example.net/feed
 ```
 
-`/feed` is a literal, case-sensitive prefix: it also matches `/feedback`. Schemes, ports, query/fragment patterns, wildcards in paths, IP addresses and single-label intranet hosts are intentionally unsupported in v0.1. Rules apply to HTTP(S) top-level navigations, including navigations on nondefault ports.
+`/feed` is a literal, case-sensitive prefix and also matches `/feedback`. Schemes, ports, query/fragment patterns, wildcards in paths, IP addresses and single-label intranet hosts are unsupported. Rules apply to HTTP(S) top-level navigations, including nondefault ports.
 
-Closing the desktop app leaves browser schedules active. The extension refreshes native state about every 30 seconds while awake and also schedules boundary alarms. Browser throttling/sleep can delay transitions; a 30-second refresh is not a hard real-time guarantee. On connection failure, the last usable policy continues locally for up to eight days, with its original focus end time. After expiry or a detected large clock rollback, blocking clears and the popup reports an error. A user who changes rules while disconnected must reconnect the extension before those edits take effect.
+## Optional desktop synchronization
+
+Keep `WebsiteBlocker-v0.5.0.exe` in a permanent folder. In the app, choose **Settings → Connect browser → Connect Chrome/Edge**. This prepares the embedded extension and per-user native registration. If the extension is already installed, keep that copy and choose **Sync with desktop** in its Settings. Otherwise follow the wizard's **Load unpacked** instructions. Browser consent remains explicit.
+
+Lists, allowlists, schedules, focus sessions, breaks, language and theme synchronize in both directions. Sync normally runs every 30 seconds while the browser is awake; the desktop refreshes visible state periodically. Closing the app or removing the EXE does not stop browser enforcement, timers or local editing. Edits wait locally until the desktop becomes available again.
+
+If both copies changed independently, **Settings** shows both list summaries and lets you choose **Use browser settings** or **Use desktop settings**. Neither copy is silently overwritten; a local backup retains the two copies after a choice. Stale revisions cannot overwrite newer settings, and synchronization cannot shorten a locked session. Attempt counters are mirrored per browser profile into the EXE and aggregated there without counting each sync again. The desktop's startup-update preference stays local to the EXE.
+
+Upgrading from v0.4 or earlier preserves cached enforcement. Connect the v0.5 desktop once to migrate those older compiled policies back to editable browser settings. Older policies without source settings keep their original eight-day expiry until that migration.
+
+See [browser setup and troubleshooting](docs/BROWSER-SETUP.md) and [architecture](docs/ARCHITECTURE.md).
+
+## Desktop updates
+
+**Settings → Updates** shows the installed version, manual **Check for updates**, a saved startup-check toggle (on by default) and user-initiated **Download and install** with progress, SHA-256 checking and restart support. Startup checks do not block launch. A missing release or compatible asset is reported as unavailable. Settings are kept outside the executable directory.
+
+Update checks use the canonical public GitHub repository. The extension's unpacked preview updates still require replacing its files and choosing **Reload** on its browser card; its local settings survive. No store-managed update flow is claimed.
 
 ## Build and check
 
-Use Rust 1.95+ with the Windows MSVC toolchain, its existing C++ build tools, and Node 22+ for dependency-free extension tests. Build commands never launch the GUI, install the extension, register a host or run the updater.
+Rust 1.95+, Windows MSVC build tools, Node 22+ and Python are required for the relevant checks. Keep `rust-auto-updator/crates/rust-auto-updator` beside this checkout; it supplies the desktop updater. Nothing is fetched from a guessed remote.
 
 ```powershell
 Set-Location E:\work\github\website-blocker
-cargo fetch --locked                       # only when dependencies are not already cached
-.\scripts\Check.ps1                        # offline formatting, Clippy and isolated tests
-.\scripts\Package.ps1 -Offline              # Windows x64 EXE, companion ZIP, checksums
-python scripts/Build-Locales.py --check       # catalog completeness and generated browser files
-python scripts/Inspect-Package.py           # inspect PE/ZIP/hashes without execution
+.\scripts\Check.ps1
+.\scripts\Package.ps1 -Offline
+python scripts/Inspect-Package.py
 ```
 
-Cargo uses a repository-local `target` directory, at most two build jobs and the static MSVC CRT for Windows x64. Release automation builds and checks version-matched artifacts before publication. First dependency fetch requires network access; the implementation environment used existing cached crates.
-
-Expected local artifacts:
+Cargo uses a repository-local target directory, at most two jobs and the static MSVC CRT. Builds/checks do not launch the UI or install extensions. Expected artifacts:
 
 ```text
-dist/WebsiteBlocker-v0.4.0.exe
-dist/WebsiteBlocker-Companion-v0.4.0.zip
+dist/WebsiteBlocker-v0.5.0.exe
+dist/WebsiteBlocker-Companion-v0.5.0.zip
 dist/checksums.txt
 ```
 
-The single executable contains the desktop app, native host and companion source. The wizard extracts the extension to its managed local-data folder; Chromium still loads it separately. The companion ZIP is optional for legacy/developer distribution. Only Windows x64 packaging is provided. Firefox is a future port, not supported in this release.
+Opt-in isolated runtime checks, after applying the rendering gate:
 
-## Limits and privacy
+```powershell
+python scripts/Check-Rendering.py
+python scripts/Capture-Readme.py
+node scripts/Browser-Standalone.mjs Chrome
+node scripts/Browser-Standalone.mjs Edge
+```
 
-This is not a security boundary or an uninstall-proof lock. The machine owner can disable/remove the extension, change local settings or the clock, use a different profile/browser or edit the source. It does not change hosts, DNS, firewall settings, processes, services or devices. No application/process blocking is included.
-
-Already loaded pages keep running until a navigation/reload; single-page-app history changes, embedded content, downloads, internal browser pages and other applications are outside this version's enforcement scope. The extension requests HTTP(S) host access to redirect selected navigations, plus declarative rules, local storage, alarms and native messaging permissions. Incognito/InPrivate requires separate consent in the browser.
-
-Settings live at `%LOCALAPPDATA%\WebsiteBlocker\state.json`. Keep a copy before manually editing. Corrupt or unsupported files are preserved and reported. The shared updater stages verified downloads in a validated `.websiteblocker-update-*` folder beside the executable; legacy installation logs may remain under `updates/`; personal settings are kept outside the EXE directory and are not replaced during updates. Update checks contact GitHub only; browser policies stay local. SHA-256 detects incomplete or corrupted assets but is not an independent publisher signature. Builds are currently unsigned.
+Browser checks use headless disposable profiles and artificial domains. They temporarily back up/replace the native-host registration, first point it at a missing EXE, then test the packaged EXE, and restore the previous value in cleanup. They do not touch normal browser profiles. Do not run them concurrently against the same browser registration. Pillow is needed for icon proofs; regular package inspection uses only Python's standard library.
 
 ## Screenshots
 
-The desktop images below show v0.4.0, including saved language and appearance controls. English/Light is the default; Russian/Dark demonstrates the alternate palette and Cyrillic text.
+Real Chrome rendering with local example-domain fixtures:
 
-Real client-area captures from the application's CPU/GDI renderer, using disposable example-domain settings at 740 × 520 pixels. Each capture saves a PNG and exits; no desktop automation is needed. Startup update checks are disabled in these fixtures only.
+![Standalone focus studio with an active session, configured websites and real blocked-visit counters](docs/images/extension-studio.png)
 
-![Focus setup with a website list, duration and explicit session lock](docs/images/focus.png)
+![Standalone extension settings with language, appearance and optional desktop synchronization](docs/images/extension-settings.png)
 
-![Website list editor with schedules and allowed-site sections](docs/images/rules.png)
+![Browser website list editor with recurring schedules and global exceptions](docs/images/extension-websites.png)
 
-![Settings with language, Light and Dark controls, browser connection and update preferences](docs/images/settings.png)
+![Block page with the focus shield, configured websites and blocked-visit counters](docs/images/blocked.png)
 
-![Russian settings with the saved dark theme](docs/images/settings-ru-dark.png)
+![Russian block page in the dark theme at a narrow phone width](docs/images/blocked-ru-dark.png)
 
-![First step of the in-app Chrome and Edge connection wizard](docs/images/browser.png)
+Real desktop client-area PNGs from the same CPU/GDI renderer used in production; each isolated capture saves and exits:
 
-Real Chrome rendering of the local companion’s block page (no external fonts or images):
+![Desktop focus setup with a website interception scene](docs/images/focus.png)
 
-![Blocked website page with the active list and focus actions](docs/images/blocked.png)
+![Desktop website and recurring schedule editor](docs/images/rules.png)
 
-![Russian blocked page in the dark theme at a narrow phone width](docs/images/blocked-ru-dark.png)
+![Desktop settings with appearance, browser connection and update preferences](docs/images/settings.png)
 
-For a bounded developer capture after applying the rendering gate:
+![Desktop Chrome connection wizard with the two-way connection scene](docs/images/browser.png)
 
-```powershell
-python scripts/Check-Rendering.py           # 16.5-second isolated diagnostic, then exits
-python scripts/Capture-Readme.py            # four real renderer captures, each exits
-```
+![Russian desktop settings in the dark theme](docs/images/settings-ru-dark.png)
 
-Native icon verification in `Check-Rendering.py` and asset regeneration with `Build-Icons.py` require Pillow. The regular package inspector uses only the Python standard library. See the native resource and assigned-icon proofs in [verification notes](docs/VERIFICATION.md).
+## Privacy and limits
 
-These are explicit GUI diagnostic commands, separate from the noninteractive build checks. The diagnostic reports actual layout/raster/present counts and CPU time. It does not certify OS input, accessibility traversal or subjective smoothness.
+The browser stores rules, counts for up to 100 configured domains, 31 daily buckets, 30 recent configured-domain attempts and a bounded set of reload-deduplication tokens. It never stores the requested full URL, path, query, page contents or general browsing history. **Activity → Clear activity** resets the current profile's counters; the next desktop sync replaces that profile's mirrored counters. Other profiles keep their own counters. No external fonts, images, analytics or productivity service is used.
 
-See [architecture](docs/ARCHITECTURE.md), [manual checks and verification](docs/VERIFICATION.md), and the [current preview notes](docs/RELEASE-NOTES-v0.4.0.md). GPLv3-licensed; third-party dependencies retain their own licenses as declared in their pinned crate distributions.
+Desktop settings are at `%LOCALAPPDATA%\WebsiteBlocker\state.json`; synchronized per-profile counters are in its `activity` directory. The desktop validates settings, uses bounded reads, writer locks, atomic replacement and revision checks. Unsupported/corrupt settings are preserved and reported. Update checks contact GitHub; rules and activity stay local.
 
-### Shared updater build dependency
+This is voluntary blocking, not an uninstall-proof security boundary. The machine owner can remove the extension, change the clock/settings or use another profile/browser. Already loaded pages keep running until navigation/reload; single-page history changes, embedded content, downloads, browser-internal pages and other apps are outside enforcement. Browser sleep/throttling can delay schedule/timer boundary alarms. Incognito/InPrivate needs separate browser consent. No hosts, DNS, firewall, drivers or services are changed.
 
-Keep `rust-auto-updator` beside this checkout (`../rust-auto-updator/crates/rust-auto-updator`). It now owns release discovery, throttled verified downloads, PE validation, staged replacement, rollback and cleanup; WebsiteBlocker retains its saved startup preference and existing Updates UI. This local dependency requires sibling source provisioning in hosted CI before these builds can run. Nothing is fetched from a guessed remote. Existing releases use a copy of their own executable as the old helper, which can install the migrated executable without a new helper protocol requirement.
+Only Windows x64 desktop packaging and Chromium browsers are supported. Builds are unsigned; checksums detect corruption but do not independently authenticate the publisher. Real update installation, OS input/accessibility traversal and subjective smoothness remain separate manual checks. See [verification evidence](docs/VERIFICATION.md) and [v0.5.0 notes](docs/RELEASE-NOTES-v0.5.0.md). GPLv3-licensed; dependencies retain their own licenses.

@@ -22,6 +22,15 @@ pub const BUNDLE_FILES: &[(&str, &[u8])] = &[
         include_bytes!("../extension/background.js"),
     ),
     ("engine.js", include_bytes!("../extension/engine.js")),
+    ("state.js", include_bytes!("../extension/state.js")),
+    ("motion.js", include_bytes!("../extension/motion.js")),
+    ("motion.css", include_bytes!("../extension/motion.css")),
+    (
+        "dashboard.html",
+        include_bytes!("../extension/dashboard.html"),
+    ),
+    ("dashboard.js", include_bytes!("../extension/dashboard.js")),
+    ("studio.css", include_bytes!("../extension/studio.css")),
     ("catalog.js", include_bytes!("../extension/catalog.js")),
     ("i18n.js", include_bytes!("../extension/i18n.js")),
     (
