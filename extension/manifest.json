@@ -1,8 +1,9 @@
 {
   "manifest_version": 3,
   "name": "__MSG_extensionName__",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "minimum_chrome_version": "120",
+  "options_page": "dashboard.html",
   "description": "__MSG_extensionDescription__",
   "icons": {
     "16": "icon16.png",
@@ -40,7 +41,9 @@
         "blocked.css",
         "style.css",
         "i18n.js",
-        "catalog.js"
+        "catalog.js",
+        "motion.js",
+        "motion.css"
       ],
       "matches": [
         "http://*/*",

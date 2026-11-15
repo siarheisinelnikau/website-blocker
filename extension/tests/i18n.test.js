@@ -12,7 +12,7 @@ test("every browser page and manifest has six complete catalogs with matching pl
       assert.equal(value.split("{}").length, key.split("{}").length, key);
     }
   }
-  for (const name of ["popup", "blocked", "welcome"]) {
+  for (const name of ["popup", "blocked", "welcome", "dashboard"]) {
     const html = readFileSync(new URL(`../${name}.html`, import.meta.url), "utf8");
     for (const match of html.matchAll(/data-i18n(?:-label)?="([^"]+)"/g)) {
       const key = match[1].replaceAll("&amp;", "&").replaceAll("&quot;", '"');

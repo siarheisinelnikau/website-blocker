@@ -245,7 +245,7 @@ fn corrupt_files_and_stale_writes_are_never_overwritten() {
 }
 
 #[test]
-fn native_framing_rejects_mutations_and_oversize_without_system_effects() {
+fn native_framing_rejects_unknown_actions_and_oversize_without_system_effects() {
     std::fs::create_dir_all(".test-output").unwrap();
     let temp = tempfile::tempdir_in(".test-output").unwrap();
     let store = Store {
@@ -268,4 +268,84 @@ fn native_framing_rejects_mutations_and_oversize_without_system_effects() {
         "chrome-extension://abcdefghijklmnopabcdefghijklmnop/"
     ));
     assert!(!native::extension_origin("chrome-extension://evil/"));
+}
+
+#[test]
+fn browser_sync_compares_revisions_preserves_settings_and_protects_locks() {
+    std::fs::create_dir_all(".test-output").unwrap();
+    let temp = tempfile::tempdir_in(".test-output").unwrap();
+    let store = Store {
+        dir: temp.path().into(),
+    };
+    let now = Utc::now().timestamp();
+    let mut browser = State::default();
+    browser.groups[0].name = "Browser list".into();
+    let (desktop, conflict) = store.synchronize(None, Some(browser.clone()), now).unwrap();
+    assert!(conflict);
+    assert_eq!(desktop.revision, 0);
+    assert!(!store.dir.join("state.json").exists());
+    store.apply(Change::StartupUpdates(false), now).unwrap();
+    let (saved, conflict) = store
+        .synchronize(Some(1), Some(browser.clone()), now)
+        .unwrap();
+    assert!(!conflict);
+    assert_eq!(saved.groups[0].name, "Browser list");
+    assert!(!saved.startup_updates);
+    let (_, conflict) = store
+        .synchronize(Some(1), Some(browser.clone()), now)
+        .unwrap();
+    assert!(conflict);
+    let locked = store
+        .apply(
+            Change::Start {
+                group_id: 1,
+                minutes: 25,
+                locked: true,
+            },
+            now,
+        )
+        .unwrap();
+    assert!(
+        store
+            .synchronize(Some(locked.revision), Some(browser), now)
+            .is_err()
+    );
+    let mut appearance = locked.clone();
+    appearance.theme = website_blocker::i18n::Theme::Dark;
+    assert!(
+        store
+            .synchronize(Some(locked.revision), Some(appearance), now)
+            .is_ok()
+    );
+    let body = serde_json::to_vec(
+        &serde_json::json!({"protocol":1,"command":"sync","expected_revision":null,"state":null}),
+    )
+    .unwrap();
+    let frame = [(body.len() as u32).to_ne_bytes().as_slice(), &body].concat();
+    let mut out = Vec::new();
+    native::serve(frame.as_slice(), &mut out, &store).unwrap();
+    let response: serde_json::Value = serde_json::from_slice(&out[4..]).unwrap();
+    assert!(response["error"].is_null());
+    assert!(response["state"]["focus"]["locked"].as_bool().unwrap());
+}
+
+#[test]
+fn profile_activity_is_replaced_not_double_counted_and_rejects_urls() {
+    std::fs::create_dir_all(".test-output").unwrap();
+    let temp = tempfile::tempdir_in(".test-output").unwrap();
+    let store = Store {
+        dir: temp.path().into(),
+    };
+    let mut a = website_blocker::activity::Activity {
+        total: 3,
+        sites: std::collections::BTreeMap::from([("example.com".into(), 3)]),
+        recent: vec![],
+    };
+    let client = "12345678-1234-1234-1234-123456789abc";
+    website_blocker::activity::record(&store, client, &a).unwrap();
+    website_blocker::activity::record(&store, client, &a).unwrap();
+    assert_eq!(website_blocker::activity::summary(&store).total, 3);
+    a.sites = std::collections::BTreeMap::from([("https://example.com/private?q=1".into(), 3)]);
+    assert!(website_blocker::activity::record(&store, client, &a).is_err());
+    assert!(website_blocker::activity::record(&store, "../bad", &a).is_err());
 }

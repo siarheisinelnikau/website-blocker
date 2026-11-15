@@ -60,15 +60,15 @@ export function activeGroups(policy, seconds) {
     g.schedules.some(s => scheduled(s, seconds)));
 }
 
-export function compileRules(policy, seconds) {
+export function compileRules(policy, seconds, identify = false) {
   const active = activeGroups(policy, seconds);
   if (!active.length) return [];
   let id = 1;
   const condition = regexFilter => ({ regexFilter, isUrlFilterCaseSensitive: true, resourceTypes: ["main_frame"] });
   return [
     ...policy.allow_regexes.map(regex => ({ id: id++, priority: 100, action: { type: "allow" }, condition: condition(regex) })),
-    ...active.flatMap(group => group.regexes.map(regex => ({ id: id++, priority: 1,
-      action: { type: "redirect", redirect: { extensionPath: "/blocked.html" } }, condition: condition(regex) })))
+    ...active.flatMap(group => group.regexes.map((regex, index) => ({ id: id++, priority: 1,
+      action: { type: "redirect", redirect: { extensionPath: identify ? `/blocked.html?group=${group.id}&site=${index}` : "/blocked.html" } }, condition: condition(regex) })))
   ];
 }
 

@@ -1,5 +1,5 @@
 use crate::{
-    model::Policy,
+    model::{Policy, State},
     store::{Connection, Store},
 };
 use chrono::Utc;
@@ -11,6 +11,14 @@ pub const HOST_NAME: &str = "com.websiteblocker.companion";
 #[derive(Deserialize)]
 #[serde(tag = "command", deny_unknown_fields)]
 enum Request {
+    #[serde(rename = "sync")]
+    Sync {
+        protocol: u32,
+        expected_revision: Option<u64>,
+        state: Option<State>,
+        client_id: Option<String>,
+        activity: Option<crate::activity::Activity>,
+    },
     #[serde(rename = "snapshot")]
     Snapshot { protocol: u32 },
     #[serde(rename = "applied")]
@@ -29,6 +37,9 @@ struct Response {
     protocol: u32,
     policy: Option<Policy>,
     error: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    state: Option<State>,
+    conflict: bool,
 }
 
 pub fn extension_origin(value: &str) -> bool {
@@ -43,7 +54,7 @@ pub fn serve(mut input: impl Read, mut output: impl Write, store: &Store) -> Res
     let mut header = [0u8; 4];
     input.read_exact(&mut header).map_err(|e| e.to_string())?;
     let size = u32::from_ne_bytes(header) as usize;
-    if size == 0 || size > 4096 {
+    if size == 0 || size > 1_048_576 {
         return Err("Invalid native message length.".into());
     }
     let mut body = vec![0u8; size];
@@ -51,6 +62,26 @@ pub fn serve(mut input: impl Read, mut output: impl Write, store: &Store) -> Res
     let result = (|| {
         let request: Request = serde_json::from_slice(&body).map_err(|e| e.to_string())?;
         match request {
+            Request::Sync {
+                protocol: 1,
+                expected_revision,
+                state,
+                client_id,
+                activity,
+            } => {
+                if let (Some(client), Some(activity)) = (client_id, activity) {
+                    crate::activity::record(store, &client, &activity)?;
+                }
+                let now = Utc::now();
+                let (state, conflict) =
+                    store.synchronize(expected_revision, state, now.timestamp())?;
+                let policy = state.policy(now);
+                store.mark_connection(Connection {
+                    at: now.timestamp(),
+                    revision: state.revision,
+                })?;
+                Ok((Some(policy), Some(state), conflict))
+            }
             Request::Snapshot { protocol: 1 } => {
                 let state = store.load()?;
                 let now = Utc::now();
@@ -59,7 +90,7 @@ pub fn serve(mut input: impl Read, mut output: impl Write, store: &Store) -> Res
                     at: now.timestamp(),
                     revision: state.revision,
                 })?;
-                Ok(Some(policy))
+                Ok((Some(policy), None, false))
             }
             Request::Applied {
                 protocol: 1,
@@ -80,21 +111,25 @@ pub fn serve(mut input: impl Read, mut output: impl Write, store: &Store) -> Res
                         error,
                     },
                 )?;
-                Ok(None)
+                Ok((None, None, false))
             }
             _ => Err("Unsupported companion protocol.".into()),
         }
     })();
     let response = match result {
-        Ok(policy) => Response {
+        Ok((policy, state, conflict)) => Response {
             protocol: 1,
             policy,
             error: None,
+            state,
+            conflict,
         },
         Err(error) => Response {
             protocol: 1,
             policy: None,
             error: Some(error),
+            state: None,
+            conflict: false,
         },
     };
     let body = serde_json::to_vec(&response).map_err(|e| e.to_string())?;

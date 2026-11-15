@@ -1,0 +1,34 @@
+.focus-scene { position: relative; height: 360px; isolation: isolate; overflow: hidden; border-radius: 28px; contain: layout paint; }
+.scene-grid { position: absolute; inset: 0; background-image: linear-gradient(#819c7b12 1px,transparent 1px),linear-gradient(90deg,#819c7b12 1px,transparent 1px); background-size: 36px 36px; mask-image: radial-gradient(ellipse,#000,transparent 70%); transform: perspective(600px) rotateX(38deg) scale(1.2); }
+.scene-halo { position: absolute; width: 300px; height: 300px; left: calc(50% - 150px); top: 26px; background: radial-gradient(circle,#aac7a544,transparent 68%); }
+.scene-orbit { position: absolute; width: 300px; height: 150px; border: 1px solid #8d9d6d66; border-radius: 50%; left: calc(50% - 150px); top: 106px; transform: rotate(-32deg); }
+.orbit-b { transform: rotate(32deg); border-color: #c8a47066; }
+.focus-core { position: absolute; width: 136px; height: 154px; top: 90px; left: calc(50% - 68px); border: 1px solid #ffffffa0; border-radius: 40px; background: linear-gradient(140deg,#e4eed8,#b0c8a1 48%,#608c6e); box-shadow: inset 4px 5px 14px #fff9,inset -4px -8px 16px #244c3e38,0 32px 35px -18px #31533b55; transform: rotate(-8deg); }
+.focus-core svg { width: 70px; margin: 34px 32px; fill: #ffffff48; stroke: #315d47; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.focus-core .check-mark { fill: none; stroke-width: 4; }
+.core-light { position: absolute; width: 70px; height: 70px; border-radius: 50%; top: -8px; left: 4px; background: radial-gradient(circle,#fff8,transparent 70%); }
+.core-spark { position: absolute; right: -9px; top: 14px; width: 18px; height: 18px; border-radius: 50%; background: #cda86f; box-shadow: inset 2px 3px 4px #fff7,0 5px 8px #45633622; }
+.site-comet { position: absolute; display: flex; gap: 9px; align-items: center; padding: 10px 14px; font-size: 11px; color: var(--forest,#194e3e); border: 1px solid #fff9; border-radius: 12px; background: var(--scene-card,#fffc); box-shadow: 0 8px 25px #1e3e2910; max-width: 190px; }
+.site-comet span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.site-comet i { color: #a78a62; font-style: normal; }.site-comet b { font-weight: 400; opacity: .55; }
+.comet-a { top: 47px; left: 18px; transform: rotate(-8deg); }.comet-b { top: 227px; right: 8px; transform: rotate(9deg); }.comet-c { top: 287px; left: 27px; transform: rotate(-5deg); }
+.scene-coordinate { position: absolute; font: 9px ui-monospace,monospace; letter-spacing: 1.7px; color: var(--muted,#67786c); }.coord-a { top: 13px; right: 23px; }.coord-b { bottom: 13px; left: 23px; }
+.impact-ring { position: absolute; width: 170px; height: 170px; border: 1px solid #9aba83; border-radius: 50%; top: 84px; left: calc(50% - 85px); opacity: 0; }
+.focus-trail { position: absolute; left: 50%; top: 47%; }.focus-trail span { position: absolute; width: 5px; height: 5px; border-radius: 2px; background: #a88d59; opacity: 0; --x: 100px; --y: -110px; }
+.focus-trail span:nth-child(2) { --x: -100px; --y: -80px; }.focus-trail span:nth-child(3) { --x: 115px; --y: 95px; }.focus-trail span:nth-child(4) { --x: -120px; --y: 80px; }.focus-trail span:nth-child(5) { --x: 30px; --y: -130px; }.focus-trail span:nth-child(6) { --x: -70px; --y: 120px; }.focus-trail span:nth-child(7) { --x: 150px; --y: -10px; }
+.scene-playing .focus-core { animation: core-land 1.3s cubic-bezier(.16,1,.3,1) both,core-protect 1.2s 2s,core-protect 1.2s 4.4s; }
+.scene-playing .orbit-a { animation: orbit-open 1.8s both; }.scene-playing .orbit-b { animation: orbit-open 1.8s .15s both reverse; }
+.scene-playing .check-mark { stroke-dasharray: 70; animation: check-draw 1.2s .65s both; }
+.scene-playing .comet-a { animation: comet-left 2.6s .7s both; }.scene-playing .comet-b { animation: comet-right 2.7s 2.8s both; }.scene-playing .comet-c { animation: comet-left 2.8s 4.8s both; }
+.scene-playing .ring-a { animation: impact 1.8s 2s,impact 1.8s 4.4s,impact 1.8s 6.5s; }.scene-playing .ring-b { animation: impact 1.8s 2.2s,impact 1.8s 4.6s,impact 1.8s 6.7s; }
+.scene-playing .focus-trail span { animation: sparks 2s 2.1s both,sparks 2s 4.5s,sparks 1.5s 6.5s; }
+@keyframes core-land { from { opacity:0; transform:translateY(38px) rotate(-22deg) scale(.65); } to { opacity:1; transform:rotate(-8deg); } }
+@keyframes core-protect { 35% { transform:rotate(-3deg) scale(1.09); box-shadow:inset 4px 5px 14px #fff9,0 0 45px #9fc28c80; } }
+@keyframes orbit-open { from { opacity:0; scale:.3; rotate:-55deg; } to { opacity:1; scale:1; rotate:0deg; } }
+@keyframes check-draw { from { stroke-dashoffset:70; } to { stroke-dashoffset:0; } }
+@keyframes comet-left { 0% { opacity:0; translate:-90px 15px; } 25% { opacity:1; } 55% { translate:65px 25px; scale:.88; } 70% { translate:35px -5px; rotate:-12deg; } 100% { opacity:1; translate:0 0; } }
+@keyframes comet-right { 0% { opacity:0; translate:90px -10px; } 25% { opacity:1; } 55% { translate:-60px -25px; scale:.88; } 70% { translate:-20px 15px; rotate:12deg; } 100% { opacity:1; translate:0 0; } }
+@keyframes impact { 0% { opacity:0; transform:scale(.7); } 20% { opacity:.7; } 100% { opacity:0; transform:scale(2); } }
+@keyframes sparks { 0% { opacity:0; translate:0 0; scale:0; } 20% { opacity:1; } 100% { opacity:0; translate:var(--x) var(--y); rotate:160deg; scale:.4; } }
+@media(max-width:620px) { .focus-scene .comet-c { top:265px; left:16px; }.focus-scene .comet-b { top:215px; right:0; }.focus-scene .coord-b { bottom:3px; font-size:8px; } }
+@media(prefers-reduced-motion:reduce) { .focus-scene *, .focus-scene *::before { animation:none!important; transition:none!important; } }

@@ -299,7 +299,7 @@ impl Host {
         } else {
             self.report.counters.unchanged_scenes_skipped += 1;
         }
-        if self.diagnostic.is_some() && self.report.counters.layouts >= 40 {
+        if self.diagnostic.is_some() && self.report.counters.layouts >= 180 {
             if let Some(path) = &self.diagnostic {
                 let view = self.view.as_ref().unwrap();
                 let rgba: Vec<_> = view
@@ -380,6 +380,7 @@ impl Host {
                     self.repaint = None;
                 }
                 2 => {
+                    self.app.diagnostic_connection_scene();
                     view.window.set_minimized(false);
                     view.needs_present = true;
                     view.hidden = false;

@@ -63,6 +63,64 @@ pub struct Connection {
 }
 
 impl Store {
+    /// Compare-and-swap a browser edit. Conflicts return the untouched desktop copy.
+    pub fn synchronize(
+        &self,
+        expected_revision: Option<u64>,
+        incoming: Option<State>,
+        now: i64,
+    ) -> Result<(State, bool), String> {
+        let _lock = self.lock()?;
+        let current = self.read_unlocked()?;
+        let Some(mut next) = incoming else {
+            return Ok((current, false));
+        };
+        next.validate()?;
+        if next.pause_until < 0
+            || next.next_break < 0
+            || next.focus.as_ref().is_some_and(|f| f.end < 0)
+        {
+            return Err("Invalid browser timer.".into());
+        }
+        if expected_revision != Some(current.revision) {
+            return Ok((current, true));
+        }
+        if next.focus.as_ref().is_some_and(|f| f.end > now + 240 * 60)
+            || next.pause_until > now + 300
+            || next.next_break > now + 1800
+        {
+            return Err("Browser timer exceeds the allowed duration.".into());
+        }
+        if current.locked(now) {
+            let protected = |s: &State| {
+                serde_json::to_value((
+                    &s.groups,
+                    &s.allowlist,
+                    &s.focus,
+                    s.pause_until,
+                    s.next_break,
+                ))
+                .map_err(|e| e.to_string())
+            };
+            if protected(&current)? != protected(&next)? {
+                return Err("Rules are protected until the locked focus session ends.".into());
+            }
+        }
+        next.startup_updates = current.startup_updates;
+        next.revision = current
+            .revision
+            .checked_add(1)
+            .ok_or("Settings revision overflow.")?;
+        if next.focus.as_ref().is_some_and(|f| f.end <= now) {
+            next.focus = None;
+        }
+        atomic_write(
+            &self.dir.join("state.json"),
+            &serde_json::to_vec_pretty(&next).map_err(|e| e.to_string())?,
+        )?;
+        Ok((next, false))
+    }
+
     fn lock(&self) -> Result<File, String> {
         fs::create_dir_all(&self.dir).map_err(|e| e.to_string())?;
         let file = OpenOptions::new()

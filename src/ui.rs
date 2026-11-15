@@ -91,6 +91,8 @@ enum UpdateJob {
     Install(Box<Update>),
 }
 enum Event {
+    ExternalState(State),
+    Activity(website_blocker::activity::Activity),
     State(Result<State, String>, bool),
     InstallResult(String),
     Update(Result<Option<Update>, String>),
@@ -103,7 +105,7 @@ enum Event {
     CompanionFolder(Result<String, String>),
 }
 
-#[derive(PartialEq)]
+#[derive(Debug, PartialEq)]
 enum Tab {
     Focus,
     Rules,
@@ -203,6 +205,9 @@ pub struct App {
     companion_folder: Option<String>,
     pub close_requested: bool,
     pub diagnostic: bool,
+    motion: crate::ui_motion::Motion,
+    editor_revision: u64,
+    activity: website_blocker::activity::Activity,
 }
 
 impl App {
@@ -234,6 +239,8 @@ impl App {
         let state_events = event_tx.clone();
         std::thread::spawn(move || {
             let mut last_setup: Option<Result<Overview, String>> = None;
+            let mut last_revision = None;
+            let mut last_activity = website_blocker::activity::Activity::default();
             while let Ok(job) = state_rx.recv() {
                 let event = match job {
                     StateJob::Load => {
@@ -244,16 +251,34 @@ impl App {
                             let _ = state_events
                                 .send(Event::InstallResult(String::from_utf8_lossy(&bytes).into()));
                         }
-                        Event::State(state_store.load(), true)
+                        let result = state_store.load();
+                        if let Ok(state) = &result {
+                            last_revision = Some(state.revision);
+                        }
+                        Event::State(result, true)
                     }
                     StateJob::Apply(change) => {
                         let reload_editor = matches!(&change, Change::Rules { .. });
-                        Event::State(
-                            state_store.apply(change, Utc::now().timestamp()),
-                            reload_editor,
-                        )
+                        let result = state_store.apply(change, Utc::now().timestamp());
+                        if let Ok(state) = &result {
+                            last_revision = Some(state.revision);
+                        }
+                        Event::State(result, reload_editor)
                     }
                     StateJob::SetupScan(force) => {
+                        let activity = website_blocker::activity::summary(&state_store);
+                        if activity != last_activity {
+                            last_activity = activity.clone();
+                            let _ = state_events.send(Event::Activity(activity));
+                            ctx.request_repaint();
+                        }
+                        if let Ok(state) = state_store.load()
+                            && last_revision != Some(state.revision)
+                        {
+                            last_revision = Some(state.revision);
+                            let _ = state_events.send(Event::ExternalState(state));
+                            ctx.request_repaint();
+                        }
                         let result =
                             setup::inspect(&state_store, &UserRegistry, Utc::now().timestamp());
                         if !force && last_setup.as_ref() == Some(&result) {
@@ -344,6 +369,9 @@ impl App {
             setup_message: String::new(),
             setup_wait_until: None,
             companion_folder: None,
+            motion: crate::ui_motion::Motion::default(),
+            editor_revision: 0,
+            activity: website_blocker::activity::Activity::default(),
             close_requested: false,
             diagnostic: std::env::var_os("WEBSITEBLOCKER_CAPTURE").is_some()
                 || std::env::var_os("WEBSITEBLOCKER_DIAGNOSTICS").is_some(),
@@ -381,6 +409,7 @@ impl App {
         }
     }
     fn load_editor(&mut self) {
+        self.editor_revision = self.state.revision;
         if let Some(g) = self.state.groups.iter().find(|g| g.id == self.selected) {
             self.name = g.name.clone();
             self.enabled = g.enabled;
@@ -407,10 +436,34 @@ impl App {
     pub fn receive(&mut self, ctx: &egui::Context) {
         while let Ok(event) = self.events.try_recv() {
             match event {
+                Event::Activity(activity) => {
+                    self.activity = activity;
+                }
+                Event::ExternalState(state) => {
+                    if state.revision != self.state.revision && !self.busy {
+                        let clean = self.editor_clean();
+                        if self.applied_theme != state.theme {
+                            apply_theme(ctx, state.theme);
+                            self.applied_theme = state.theme;
+                        }
+                        self.state = state;
+                        if clean {
+                            self.load_editor();
+                        }
+                        self.message = if clean {
+                            "Changes from your browser are synced."
+                        } else {
+                            "Browser settings changed. Reload before saving your draft."
+                        }
+                        .into();
+                    }
+                }
                 Event::State(result, mut reload_editor) => {
                     self.busy = false;
                     match result {
                         Ok(state) => {
+                            let clean = self.editor_clean();
+                            let compatible_draft = self.editor_revision == self.state.revision;
                             if state.revision != self.state.revision {
                                 self.setup.chrome.up_to_date = false;
                                 self.setup.edge.up_to_date = false;
@@ -421,6 +474,9 @@ impl App {
                                 self.applied_theme = state.theme;
                             }
                             self.state = state;
+                            if clean || (!reload_editor && compatible_draft) {
+                                self.editor_revision = self.state.revision;
+                            }
                             self.ready = true;
                             self.message = "Saved on this computer.".into();
                             if !self.state.groups.iter().any(|g| g.id == self.selected) {
@@ -518,6 +574,19 @@ impl App {
 
     fn focus(&mut self, ui: &mut egui::Ui) {
         let l = self.state.language;
+        if self.activity.total > 0 {
+            ui.horizontal(|ui| {
+                ui.colored_label(
+                    accent(ui),
+                    localized!(l, "{} distractions stopped", self.activity.total),
+                );
+                let mut sites = self.activity.sites.iter().collect::<Vec<_>>();
+                sites.sort_by_key(|(_, count)| std::cmp::Reverse(**count));
+                for (site, count) in sites.into_iter().take(2) {
+                    ui.small(format!("{site} · {count}"));
+                }
+            });
+        }
         let now = Utc::now().timestamp();
         let active = self.state.focus.as_ref().is_some_and(|f| f.end > now);
         ui.heading(if active {
@@ -713,7 +782,7 @@ impl App {
         }
         candidate.validate()?;
         self.submit(StateJob::Apply(Change::Rules {
-            revision: self.state.revision,
+            revision: self.editor_revision,
             groups,
             allowlist,
         }));
@@ -723,6 +792,12 @@ impl App {
     fn rules(&mut self, ui: &mut egui::Ui) {
         let l = self.state.language;
         ui.heading(l.t("Websites"));
+        if self.editor_revision != self.state.revision {
+            ui.label(l.t("Browser settings changed. Reload before saving your draft."));
+            if ui.button(l.t("Reload website rules")).clicked() {
+                self.load_editor();
+            }
+        }
         if self.state.locked(Utc::now().timestamp()) {
             ui.colored_label(
                 error_color(ui),
@@ -1076,14 +1151,46 @@ impl App {
         egui::CollapsingHeader::new(l.t("Local data & privacy")).show(ui, |ui| {
             ui.label(localized!(l, "Settings: {}", self.store_dir.display()));
             ui.label(l.t("Browsing history and page content are not recorded. Update checks contact GitHub. Rules stay local."));
-            ui.small(l.t("A valid cached policy runs for up to eight days without a desktop sync; expired rules clear automatically. This is a voluntary focus tool that the machine owner can bypass."));
+            ui.small(l.t("Chrome works independently. Connect the desktop to sync lists, schedules, sessions and appearance. This is a voluntary focus tool."));
         });
     }
 }
 
 impl App {
+    fn editor_clean(&self) -> bool {
+        let group = self.state.groups.iter().find(|g| g.id == self.selected);
+        group.is_some_and(|g| {
+            g.name == self.name
+                && g.enabled == self.enabled
+                && g.patterns
+                    .iter()
+                    .map(|p| p.text())
+                    .collect::<Vec<_>>()
+                    .join("\n")
+                    == self.patterns
+                && g.schedules.len() == self.schedules.len()
+                && g.schedules.iter().zip(&self.schedules).all(|(a, b)| {
+                    b.parse().ok().is_some_and(|s| {
+                        serde_json::to_value(a).ok() == serde_json::to_value(s).ok()
+                    })
+                })
+        }) && self
+            .state
+            .allowlist
+            .iter()
+            .map(|p| p.text())
+            .collect::<Vec<_>>()
+            .join("\n")
+            == self.allowlist
+    }
+
     pub fn capture_ready(&self) -> bool {
         self.ready && !self.busy && self.setup_loaded
+    }
+    pub fn diagnostic_connection_scene(&mut self) {
+        if self.diagnostic {
+            self.tab = Tab::Browser;
+        }
     }
     pub fn maintenance_deadline(&self) -> Option<Instant> {
         Some(self.next_connection)
@@ -1100,8 +1207,8 @@ impl App {
         }
     }
     pub fn render(&mut self, ctx: &egui::Context) {
-        let l = self.state.language;
         self.receive(ctx);
+        let l = self.state.language;
         let now = Utc::now().timestamp();
         if self.tab == Tab::Focus
             && (self.state.focus.as_ref().is_some_and(|f| f.end > now)
@@ -1158,6 +1265,53 @@ impl App {
             .show(ctx, |ui| {
                 egui::ScrollArea::vertical().show(ui, |ui| {
                     ui.set_max_width(ui.available_width().min(790.0));
+                    let key = format!(
+                        "{:?}-{}-{}-{}-{}-{}-{}",
+                        self.tab,
+                        self.state.revision,
+                        self.setup.chrome.connected,
+                        self.setup.edge.connected,
+                        self.setup.chrome.prepared,
+                        self.setup.edge.prepared,
+                        self.setup_working
+                    );
+                    let progress = self.motion.progress(
+                        ui,
+                        key,
+                        std::env::var_os("WEBSITEBLOCKER_CAPTURE").is_some(),
+                    );
+                    if matches!(self.tab, Tab::Focus | Tab::Browser) {
+                        let labels = self
+                            .state
+                            .groups
+                            .iter()
+                            .flat_map(|g| &g.patterns)
+                            .take(2)
+                            .map(|p| p.domain.clone())
+                            .collect::<Vec<_>>();
+                        let replay = crate::ui_motion::scene(
+                            ui,
+                            progress,
+                            self.tab == Tab::Browser,
+                            self.setup.connected(),
+                            &labels,
+                            l.t(if self.tab == Tab::Browser {
+                                if self.setup.connected() {
+                                    "Connected. Changes travel both ways."
+                                } else {
+                                    "Chrome works on its own. Connect to sync."
+                                }
+                            } else {
+                                "Less distraction. More intention."
+                            }),
+                            l.t("Replay animation"),
+                        );
+                        if replay {
+                            self.motion.replay(ui.ctx());
+                        }
+                    }
+                    ui.set_opacity((progress * 3.5).min(1.0));
+                    ui.add_space(7.0 * (1.0 - (progress * 3.5).min(1.0)));
                     ui.add_enabled_ui(self.ready && !self.busy, |ui| match self.tab {
                         Tab::Focus => self.focus(ui),
                         Tab::Rules => self.rules(ui),
@@ -1228,6 +1382,47 @@ mod tests {
         for value in ["24:00", "12:60", "noon", "-1:00"] {
             assert!(parse_time(value).is_err());
         }
+    }
+
+    #[test]
+    fn incoming_browser_edits_preserve_drafts_and_reject_stale_saving() {
+        std::fs::create_dir_all(".test-output").unwrap();
+        let temp = tempfile::tempdir_in(".test-output").unwrap();
+        let store = Store {
+            dir: temp.path().into(),
+        };
+        store
+            .apply(Change::StartupUpdates(false), Utc::now().timestamp())
+            .unwrap();
+        let ctx = egui::Context::default();
+        let mut app = App::with_context(&ctx, store.clone());
+        settle(&mut app, &ctx);
+        app.name = "Unsaved desktop draft".into();
+        let old_revision = app.editor_revision;
+        let mut state = store.load().unwrap();
+        state.groups[0].name = "Incoming browser list".into();
+        let updated = store
+            .synchronize(Some(state.revision), Some(state), Utc::now().timestamp())
+            .unwrap()
+            .0;
+        app.jobs.send(StateJob::SetupScan(true)).unwrap();
+        let deadline = Instant::now() + Duration::from_secs(3);
+        while app.state.revision != updated.revision && Instant::now() < deadline {
+            app.receive(&ctx);
+            std::thread::sleep(Duration::from_millis(5));
+        }
+        assert_eq!(app.state.revision, updated.revision);
+        assert_eq!(app.name, "Unsaved desktop draft");
+        assert_eq!(app.editor_revision, old_revision);
+        app.save_rules(false).unwrap();
+        settle(&mut app, &ctx);
+        assert!(app.message.contains("another window"));
+        assert_eq!(
+            store.load().unwrap().groups[0].name,
+            "Incoming browser list"
+        );
+        app.load_editor();
+        assert_eq!(app.name, "Incoming browser list");
     }
 
     #[test]

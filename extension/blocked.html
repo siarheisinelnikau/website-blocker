@@ -7,17 +7,18 @@
   <title data-i18n="A little space to focus — WebsiteBlocker">A little space to focus — WebsiteBlocker</title>
   <link rel="icon" href="icon32.png">
   <link rel="stylesheet" href="blocked.css">
+  <link rel="stylesheet" href="motion.css">
 </head>
 <body>
   <div class="page-shell">
     <header class="masthead">
-      <a class="brand" href="welcome.html" aria-label="WebsiteBlocker connection" data-i18n-label="WebsiteBlocker connection"><img src="icon32.png" width="28" height="28" alt="">WebsiteBlocker<span class="brand-dot">.</span></a>
+      <a class="brand" href="dashboard.html" aria-label="WebsiteBlocker connection" data-i18n-label="WebsiteBlocker connection"><img src="icon32.png" width="28" height="28" alt="">WebsiteBlocker<span class="brand-dot">.</span></a>
       <span class="focus-state"><span aria-hidden="true"></span><span data-i18n="Your focus, protected">Your focus, protected</span></span>
     </header>
     <main>
       <section class="hero" aria-labelledby="title">
         <div class="hero-copy">
-          <p class="eyebrow"><span aria-hidden="true">01 —</span> <span data-i18n="A MOMENT FOR YOU">A MOMENT FOR YOU</span></p>
+          <p class="eyebrow"><span aria-hidden="true">01 —</span> <span data-i18n="DISTRACTION STOPPED. FOCUS SAVED.">DISTRACTION STOPPED. FOCUS SAVED.</span></p>
           <h1 id="title"><span data-i18n="A little space.">A little space.</span><br><em data-i18n="For bigger things.">For bigger things.</em></h1>
           <p class="intro"><span data-i18n="You chose to block this website.">You chose to block this website.</span><br><span data-i18n="Let’s make room for what you came here to do.">Let’s make room for what you came here to do.</span></p>
           <div class="actions">
@@ -25,20 +26,13 @@
             <button class="button-quiet" id="breathe" aria-pressed="false"><span data-i18n="Take a breath">Take a breath</span> <span aria-hidden="true">＋</span></button>
           </div>
           <p class="breath-status" id="breath-status" role="status" data-i18n="No rush. Just one intentional next step.">No rush. Just one intentional next step.</p>
+          <button class="button-quiet replay" id="replay" data-i18n="Replay the moment">Replay the moment</button>
         </div>
         <div class="hero-art" id="art" aria-hidden="true">
-          <div class="art-guide guide-one"></div><div class="art-guide guide-two"></div>
-          <span class="art-caption" data-i18n="A quieter corner of the internet.">A quieter corner of the internet.</span>
-          <div class="sculpture">
-            <div class="orbit orbit-back"></div>
-            <div class="sphere"><span class="sphere-mark">◎</span></div>
-            <div class="orbit orbit-front"></div>
-            <div class="satellite"></div>
-            <div class="sculpture-shadow"></div>
-          </div>
-          <span class="art-note"><span></span><span data-i18n="ONE THING AT A TIME">ONE THING AT A TIME</span></span>
+          <div id="focus-scene"></div>
         </div>
       </section>
+      <section class="focus-receipt" aria-label="Focus statistics"><div><strong id="wins">0</strong><span data-i18n="distractions stopped">distractions stopped</span></div><div><strong id="today-wins">0</strong><span data-i18n="focus wins today">focus wins today</span></div><div class="receipt-sites"><span data-i18n="YOUR BOUNDARIES">YOUR BOUNDARIES</span><p id="protected-sites"></p></div><a href="dashboard.html#activity" data-i18n="View your activity">View your activity</a></section>
       <section class="boundary" aria-label="Blocking information" data-i18n-label="Blocking information">
         <div class="boundary-icon" aria-hidden="true">◎</div>
         <div><p class="boundary-label" data-i18n="A boundary you set. A little room to grow.">A boundary you set. A little room to grow.</p><p class="rule-copy" id="rules" data-i18n="This website is blocked by your active focus rules.">This website is blocked by your active focus rules.</p></div>
@@ -46,8 +40,8 @@
       </section>
     </main>
     <footer>
-      <p data-i18n="Need an intentional break? Open WebsiteBlocker on your desktop.">Need an intentional break? Open WebsiteBlocker on your desktop.</p>
-      <details><summary data-i18n="Why am I seeing this?">Why am I seeing this?</summary><p data-i18n="Your website list or schedule is active. A locked session ends when its timer expires. WebsiteBlocker does not record the URL you tried to visit. Rules can take longer to refresh after browser sleep.">Your website list or schedule is active. A locked session ends when its timer expires. WebsiteBlocker does not record the URL you tried to visit. Rules can take longer to refresh after browser sleep.</p></details>
+      <p><a href="dashboard.html" data-i18n="Manage focus in your browser">Manage focus in your browser</a></p>
+      <details><summary data-i18n="Why am I seeing this?">Why am I seeing this?</summary><p data-i18n="Your list or schedule is active. Only configured domains and blocked-visit counts are saved locally. Full URLs and page contents are never stored. A locked session ends with its timer.">Your list or schedule is active. Only configured domains and blocked-visit counts are saved locally. Full URLs and page contents are never stored. A locked session ends with its timer.</p></details>
     </footer>
   </div>
   <script src="blocked.js" type="module"></script>

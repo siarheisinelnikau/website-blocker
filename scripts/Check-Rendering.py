@@ -62,6 +62,7 @@ assert samples["minimized_end"]["window_minimized"] is True
 assert samples["restored_settled"]["window_minimized"] is False
 assert samples["hidden_end"]["window_visible"] is False
 assert samples["restored_settled"]["counters"]["presents"] > samples["minimized_end"]["counters"]["presents"], "Restore did not present the retained frame"
+print("Finite arrival + connection transition:", samples["restored_settled"]["counters"]["layouts"], "layouts before returning to idle")
 for label, start, end in (
     ("Visible idle", "settled_start", "visible_idle_end"),
     ("Minimized", "visible_idle_end", "minimized_end"),

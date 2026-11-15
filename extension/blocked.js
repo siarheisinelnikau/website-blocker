@@ -1,4 +1,21 @@
 import { initializeI18n, t } from "./i18n.js";
+import { installScene, countTo } from "./motion.js";
+
+const { localState } = await chrome.storage.local.get("localState");
+const labels = [...new Set(localState?.groups.flatMap(g => g.patterns.map(p => p.domain)) || [])];
+const scene = installScene(document.getElementById("focus-scene"), labels);
+document.getElementById("replay").onclick = scene.play;
+let visit = sessionStorage.getItem("blocked-visit");
+if (!visit || performance.getEntriesByType("navigation")[0]?.type !== "reload") visit = crypto.randomUUID();
+sessionStorage.setItem("blocked-visit", visit);
+await chrome.runtime.sendMessage({ command: "attempt", visit });
+async function renderStatistics() {
+  const { statistics = {} } = await chrome.storage.local.get("statistics");
+  countTo(document.getElementById("wins"), statistics.total || 0);
+  countTo(document.getElementById("today-wins"), statistics.days?.[new Date().toLocaleDateString("en-CA")] || 0);
+  document.getElementById("protected-sites").textContent = labels.slice(0, 5).join(" · ") || t("Your focus, protected");
+}
+await renderStatistics();
 
 const rules = document.getElementById("rules");
 async function renderRules() {
@@ -9,7 +26,7 @@ try {
   // The page stays useful if the extension worker is temporarily unavailable.
 }
 }
-await initializeI18n(() => { void renderRules(); });
+await initializeI18n(() => { void renderRules(); void renderStatistics(); });
 await renderRules();
 
 document.getElementById("back").addEventListener("click", () => {

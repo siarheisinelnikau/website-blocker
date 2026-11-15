@@ -2,6 +2,29 @@
 
 Initial record: 2026-10-31 (Europe/Minsk). All work used this repository, isolated artificial settings and at most two Cargo jobs. Nothing was published; no remote Git operations occurred. Normal browser profiles, user data, hosts/DNS/firewall settings and drivers were not changed.
 
+## Version 0.5.0: standalone browser, two-way sync and finite motion (2026-11-15)
+
+`Check.ps1` passed formatting, offline Clippy with warnings denied, **23 Rust tests**, **16 extension tests**, six complete generated locale catalogs and PowerShell syntax checks. Regression coverage includes Rust/browser matcher parity, DST and overnight schedules, independent browser policy renewal beyond eight days, locked sessions and cooldowns, failed DNR application preserving settings, stale revisions, retained legacy policies, serialized overlapping browser actions, native compare-and-swap conflicts, URL-free activity validation and unsaved desktop drafts surviving incoming browser edits.
+
+Chrome **157.0.8103.78** and Edge **157.0.4341.60** each passed the real headless standalone/native suite in disposable profiles. The fixture first pointed a backed-up native registration at a missing executable: website editing, focus, allow priority, DNR redirects and real blocked navigation still worked. A real redirect recorded exactly one configured-domain attempt; reload did not increase it, and the requested private path/query were absent from storage. Motion settled, replayed and obeyed reduced motion; the breathing control worked. All six languages and both themes fit 390px without horizontal overflow. The actual website editor saved through its controls.
+
+The same profiles then used the packaged EXE through Chrome/Edge native messaging, without a desktop window. An independent initial browser copy produced a conflict; explicit browser selection imported the list/session. Edits traveled in both directions and per-profile activity was replaced rather than recounted on each sync. Both UI stopping and a native replacement were rejected during a locked session. All temporary native-host values were restored in `finally`; no regular browser profile was used. Test-driver fixes wait for the complete 8.2-second sequence and bring only headless test targets forward before capturing them.
+
+The final optimized `WebsiteBlocker-v0.5.0.exe` was measured in a bounded **16.5-second** isolated diagnostic with startup update checks disabled. Source and pinned-backend inspection confirm **egui CPU rasterization → retained bitmap → softbuffer Win32 GDI**. The selected loaded-module check found `gdi32.dll`; this supports the source evidence and does not measure Windows composition. Initial arrival and the transition to the real connection route produced **156 useful layouts/rasters/presents in total**, then stopped. These animated frames are separate from idle samples:
+
+| State | Clean sample | CPU, % of one core | Layout / raster / present delta |
+| --- | ---: | ---: | --- |
+| Visible, settled | 5.00 s | 0.000 | 0 / 0 / 0 |
+| Minimized | 2.00 s | 0.000 | 0 / 0 / 0 |
+| Connection route after restore, settled | 3.00 s | 0.000 | 0 / 0 / 0 |
+| Hidden | 2.00 s | 0.000 | 0 / 0 / 0 |
+
+No external input events were counted. The test verified native minimize/restore/hide states and exited normally. Windows' client-area animation preference is read without changing it. Exact-pid native icon checks verified assigned window icons and all nine packaged icon sizes.
+
+Fresh 740×520 desktop captures (Focus, Websites, Settings and Connect browser), Russian/dark Settings and real Chromium studio/settings/block-page/mobile screenshots were inspected and embedded in the README. They use the production renderer/components and artificial domains. Browser scenes now show configured domains; mobile tile/caption overlap was corrected. Screenshot links in this document track the current interface; older numbered records below retain their original measurement scope.
+
+Packaging checks validate version agreement, Windows x64 GUI/static CRT, native icon/version resources, all standalone extension runtime assets, ZIP integrity and both SHA-256 checksums. No release, remote upload or real update installation was performed. Normal OS input/accessibility traversal, perceived smoothness, mixed-DPI behavior, real browser folder-picker consent and GPU/compositor telemetry remain separate manual checks. Finite capture is visual evidence; the measured idle/hidden intervals above establish the limited rendering conclusion.
+
 ## Version 0.4.0: six languages and saved appearance (2026-11-01)
 
 Added complete English/Russian/French/German/Spanish/Italian desktop catalogs and browser catalogs. Settings → Appearance changes language and Light/Dark without restarting; defaults on legacy settings are English/Light. Regression checks preserve existing list names, locked focus state, unsaved website edits and update preferences while saving appearance and exporting it in browser policy. Catalog checks validate every translation and placeholder, generated browser files and all six embedded manifest locales. Consumer labels/status text were audited; names, website/timezone/path data, fixed confirmation phrases and technical error details intentionally retain their original text.

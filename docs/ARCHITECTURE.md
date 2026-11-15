@@ -3,9 +3,10 @@
 ## Data flow
 
 ```text
-Desktop UI -> bounded settings worker -> validated state.json (atomic replacement)
-Browser alarm / Sync -> EXE native host -> read-only policy snapshot
-Snapshot -> local extension cache -> Intl schedule evaluation -> Chromium dynamic rules
+Browser studio/popup -> serialized worker mutations -> validated chrome.storage.local state
+Browser-owned state -> Intl schedule evaluation -> Chromium dynamic rules (no EXE needed)
+Optional native sync <-> revision-checked state.json <-> desktop settings worker/UI
+Blocked redirect -> configured-domain counters -> optional per-profile desktop mirror
 Applied-rule report -> per-browser connection status -> in-app setup confirmation
 HTTP(S) top-level navigation -> higher-priority allow OR redirect -> local block page
 ```
@@ -18,7 +19,7 @@ Settings I/O and updates use separate bounded worker queues. A slow update does 
 
 The executable has no eframe, Glow, wgpu, OpenGL or DirectX rendering path. The verified route is `egui -> egui_software_backend 0.0.2 (CPU) -> retained BGRA bitmap -> softbuffer 0.4.8 Win32 GDI BitBlt`. The pinned softbuffer Win32 source was inspected. PE imports and the running diagnostic's selected loaded-module checks support this path; Windows desktop composition remains an OS responsibility.
 
-A winit event loop uses Wait/WaitUntil and no Poll. Input, changed worker data, resize/DPI and a visible focus countdown can invalidate the scene. Unchanged OS expose events can blit the retained bitmap without layout/rasterization. A static Focus/Websites page has no periodic UI timer. Settings can request a background connection read every 30 seconds; unchanged reads do not publish a repaint. A visible countdown repaints once per second. Hidden/minimized windows perform no layout, rasterization or presentation; dirty state is retained for restoration. Workers can complete and request shutdown while hidden without requiring a painted frame.
+A winit event loop uses Wait/WaitUntil and no Poll. Input, changed worker data, resize/DPI, finite transitions and a visible focus countdown can invalidate the scene. `ui_motion` requests frames for 1.25 seconds after a section/state change or explicit replay, then stops. It reads Windows' client-area animation preference. Capture mode renders the settled scene through the same components. Unchanged OS expose events can blit the retained bitmap without layout/rasterization. Visible maintenance reads every 30 seconds; unchanged settings/status/activity do not publish a repaint. A visible countdown repaints once per second. Hidden/minimized windows perform no layout, rasterization or presentation; dirty state is retained for restoration. Workers can complete and request shutdown while hidden without requiring a painted frame.
 
 The Win32 winit 0.30 loop may wait immediately after AboutToWait, before observing an exit requested from that callback. The host expires that one final wait and releases the GDI surface/window during exiting. Diagnostic and capture modes have internal limits and independent external timeouts. They are not consumer settings.
 
@@ -26,7 +27,7 @@ The Win32 winit 0.30 loop may wait immediately after AboutToWait, before observi
 
 ## Rules and schedules
 
-Rust validates list size/IDs, syntax, canonical domain/path representation, session policy and persistence. The extension validates snapshot structure, actual IANA zone support, and Chromium RE2 compatibility before replacing its cached policy. The browser owns timezone evaluation, using `Intl.DateTimeFormat` with a named zone and 24-hour clock. No new timezone database dependency or network lookup is required. Rust `Schedule::active_wall` and the extension implement the same half-open wall-minute predicate. Timezone conversion and daylight-saving fixtures are exercised in Node.
+Rust and `extension/state.js` validate the same settings schema, list limits, canonical domain/path representation and session policy. Shared fixtures compare their matchers. Browser settings are primary when no EXE exists; the worker regenerates its compiled policy at alarms/startup without any native cache renewal requirement. The extension additionally validates actual IANA support and Chromium RE2 compatibility before replacing DNR/settings. It owns timezone evaluation through `Intl.DateTimeFormat`. Rust `Schedule::active_wall` and the extension implement the same half-open wall-minute predicate. Daylight-saving fixtures run in Node.
 
 Weekly days use Monday = 0. Start is inclusive, end is exclusive. Equal start/end is invalid; add separate nonoverlapping schedules for longer ranges. Overnight schedules are attributed to their start day. At fall-back, repeated matching local minutes block twice; at spring-forward, nonexistent local minutes do not occur. A focus session OR any active schedule activates a list. A global pause overrides both. Disabled lists produce no policy groups.
 
@@ -38,7 +39,11 @@ All allow patterns have priority 100 and all redirects priority 1. Allowlists ar
 
 All runtime data is under the user's WebsiteBlocker directory. State files are bounded to 1 MiB, validated on read, and never overwritten on parse/schema failure. A separate file lock serializes reads/writes; acquisition fails promptly rather than blocking a UI worker forever. Rule saves include their base revision to reject stale editors. Writes use a same-directory temporary file, flush and atomic replacement. Empty initial settings are loaded as an inactive timer-only example list. Tests use temporary fixture directories under `.test-output/`; real `%LOCALAPPDATA%` is never touched by tests.
 
-Native messaging uses native-endian 32-bit framing, bounded to 4 KiB input and less than 1 MiB output. Protocol 1 accepts the legacy snapshot command plus a strictly typed applied-status report (browser, revision, fixed extension ID, version, bounded error). Unknown fields/commands and browser-side attempts to stop focus remain rejected. Applied reports cannot modify rule/focus configuration. They are written only after the extension successfully updates DNR, or carry an explicit error. Current-rule confirmation requires a recent report with the saved revision; transport connection and pending rule synchronization are separate UI states. This is a cooperative local status mechanism, not tamper-resistant attestation.
+Native messaging uses native-endian 32-bit framing, bounded to 1 MiB input and less than 1 MiB output. Protocol 1 retains `snapshot` and `applied` and adds typed `sync` requests with an optional source state and expected desktop revision. The store holds its writer lock across comparison/validation/atomic replacement. Mismatched or unknown base revisions return an untouched desktop copy and a conflict flag. The browser preserves its dirty copy and asks which to adopt; resolution retains both originals in `syncBackup`. A locked session on either side cannot be shortened. Desktop startup-update preferences remain local. Unknown native actions are rejected.
+
+All extension mutations, counters and syncs share a promise queue, preventing alarm/UI races. Local DNR validation/application precedes committing a new local state; native unavailability only updates sync status. A successful sync clears dirty metadata and saves the new desktop base revision. The desktop's bounded maintenance worker reads changed revisions; unsaved drafts retain their original revision and require an explicit reload after an external change. Applied-rule receipts are sent after DNR succeeds. Current-rule readiness requires a recent version/revision-matched report, not merely registration or a snapshot.
+
+Optional activity payloads contain a stable random per-profile identifier, total, configured-domain counts and bounded recent domain/timestamp entries. Native validation rejects URLs, paths and invalid domains. At most 32 profile summaries are accepted, with bounded files. Each sync replaces that profile's summary; desktop aggregation does not count the same sync again. The browser retains 100 domain counters, 31 day buckets, 30 recent entries and 200 deduplication tokens. Redirects carry only numeric group/pattern identifiers. The extension records an attempt only from its own matching block document, and reloads reuse a token. No requested URL or page content is persisted.
 
 ## In-app browser setup
 
@@ -46,9 +51,9 @@ The Settings/Focus action opens one coherent connection wizard. The EXE embeds a
 
 A bounded worker handles preparation, status inspection and explicit browser launching; no disk/registry work is performed by the paint callback. While setup waits, it reads status about once a second for at most two minutes; stable status/errors do not publish repaint events. Otherwise inspection is every 30 seconds while visible. Hidden windows still perform no UI rendering. Diagnostic/capture fixtures ignore real keyboard/mouse input to prevent accidental connection actions, and count ignored input separately. Normal mode continues processing input; it skips raster/present when shapes, dimensions, scale and texture deltas show the scene is unchanged. Native expose/restore still blits the retained bitmap.
 
-The companion's install welcome page initiates a sync and displays connection success/failure. Chrome/Edge browser consent and unpublished-extension loading remain explicit browser steps. A future store path needs a real published listing and identity; none is invented. Production setup uses no DevTools flags; those exist only in the isolated developer smoke driver.
+Installation opens the standalone studio. Old welcome links redirect there. Browser Settings exposes optional sync, independent-edit conflict choices and language/theme. An installed EXE alone grants no native registration; connecting remains an explicit desktop action. Chrome/Edge consent and unpacked-extension loading are explicit browser steps. Production uses no DevTools flags; those exist only in isolated developer fixtures.
 
-The legacy global handshake file remains for protocol compatibility. Per-browser applied records are stored under connections/. Native requests are short-lived and have no GUI. The extension stores a snapshot and compact status, with an eight-day maximum cache lifetime. Focus end times do not extend on disconnect. Expired policies clear browser rules and report an error.
+The legacy handshake remains for compatibility. Applied records live under `connections/`. Native requests are short-lived and have no GUI. The browser keeps editable source settings indefinitely and regenerates a bounded compiled policy locally. Only pre-0.5 caches lacking source settings retain their original eight-day expiry; they migrate on first contact with the updated desktop. They are never silently replaced by empty/default lists. Focus end times do not extend on disconnect.
 
 ## Updates and distribution
 
@@ -64,6 +69,6 @@ The shared SVG generates committed ICO/PNG assets with Build-Icons.py (Pillow is
 
 The default client area is 740 × 520 with a 680 × 460 minimum. Fields that belong together share a row; larger website/schedule content scrolls. Setup reveals later actions only after preparation. The worker canonicalizes and validates the copyable companion directory, returns a normal Windows drive/UNC path, and the UI emits a plain CopyText command plus a selectable path. It does not copy the EXE directory or a manifest filename.
 
-The local block page has no external assets or URL query parameters. It shows active list names from compact extension status. Entrance animation is finite; parallax queues at most one animation callback per pointer event and stops without input. The optional breathing exercise has four finite timeouts, supports cancellation and clears on visibility loss. Reduced-motion mode disables physical movement. No continuous animation loop or polling timer runs on the block page.
+The block page has no external assets. Its query contains numeric rule identifiers, never the requested URL. It shows active list names, configured domains and real attempt counts. `motion.js` installs one shared dimensional shield scene in the block page and studio, with a finite 8.2-second CSS choreography and explicit replay. Visibility loss cancels it; reduced-motion disables physical movement. Parallax queues at most one callback per pointer event. The breathing exercise is finite and cancelable. Counters animate for 800 ms on actual changes. No continuous animation loop or polling timer runs on the block page; visible studio/popup timers update only while a session/break is running.
 
 Diagnostic/capture windows are labeled, input-disabled and omitted from the taskbar to avoid confusing them with the user’s working instance. Only those disposable windows exercise minimize/restore/hide internally; normal windows retain regular activation and taskbar behavior.

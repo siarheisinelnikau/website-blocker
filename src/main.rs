@@ -2,6 +2,7 @@
 
 mod desktop;
 mod ui;
+mod ui_motion;
 
 use website_blocker::{
     native,
