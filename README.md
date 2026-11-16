@@ -2,11 +2,11 @@
 
 A local, voluntary focus tool for Chrome and Edge. **The extension works on its own. The Windows EXE is optional.** Manage website lists, allowlists, recurring schedules, focus timers and deliberate breaks directly in your browser. Connect the desktop app if you want the same settings on both sides.
 
-**Version 0.5.0 · Windows x64 desktop preview · Chromium Manifest V3 extension.** Independent implementation with no affiliation to Cold Turkey and no copied code or assets.
+**Version 0.6.0 · Windows x64 desktop preview · Chromium Manifest V3 extension.** Independent implementation with no affiliation to Cold Turkey and no copied code or assets.
 
 ## Start without an EXE
 
-1. Extract `WebsiteBlocker-Companion-v0.5.0.zip` into a permanent folder.
+1. Extract `WebsiteBlocker-Companion-v0.6.0.zip` into a permanent folder.
 2. Open `chrome://extensions` (or `edge://extensions`), turn on **Developer mode**, choose **Load unpacked**, and select the extracted **extension** folder.
 3. Open WebsiteBlocker from the browser toolbar and choose **Open focus studio**. The studio also opens after first installation.
 4. In **Websites**, edit a list and choose **Save website rules**. Start a timer in **Focus**, or add a recurring schedule to your list.
@@ -36,7 +36,7 @@ news.example.net/feed
 
 ## Optional desktop synchronization
 
-Keep `WebsiteBlocker-v0.5.0.exe` in a permanent folder. In the app, choose **Settings → Connect browser → Connect Chrome/Edge**. This prepares the embedded extension and per-user native registration. If the extension is already installed, keep that copy and choose **Sync with desktop** in its Settings. Otherwise follow the wizard's **Load unpacked** instructions. Browser consent remains explicit.
+Keep `WebsiteBlocker-v0.6.0.exe` in a permanent folder. In the app, choose **Settings → Connect browser → Connect Chrome/Edge**. This prepares the embedded extension and per-user native registration. If the extension is already installed, keep that copy and choose **Sync with desktop** in its Settings. Otherwise follow the wizard's **Load unpacked** instructions. Browser consent remains explicit.
 
 Lists, allowlists, schedules, focus sessions, breaks, language and theme synchronize in both directions. Sync normally runs every 30 seconds while the browser is awake; the desktop refreshes visible state periodically. Closing the app or removing the EXE does not stop browser enforcement, timers or local editing. Edits wait locally until the desktop becomes available again.
 
@@ -66,8 +66,8 @@ python scripts/Inspect-Package.py
 Cargo uses a repository-local target directory, at most two jobs and the static MSVC CRT. Builds/checks do not launch the UI or install extensions. Expected artifacts:
 
 ```text
-dist/WebsiteBlocker-v0.5.0.exe
-dist/WebsiteBlocker-Companion-v0.5.0.zip
+dist/WebsiteBlocker-v0.6.0.exe
+dist/WebsiteBlocker-Companion-v0.6.0.zip
 dist/checksums.txt
 ```
 
@@ -82,7 +82,7 @@ node scripts/Browser-Standalone.mjs Edge
 
 Browser checks use headless disposable profiles and artificial domains. They temporarily back up/replace the native-host registration, first point it at a missing EXE, then test the packaged EXE, and restore the previous value in cleanup. They do not touch normal browser profiles. Do not run them concurrently against the same browser registration. Pillow is needed for icon proofs; regular package inspection uses only Python's standard library.
 
-## Screenshots
+## Screenshots (v0.5.0, previous palette)
 
 Real Chrome rendering with local example-domain fixtures:
 

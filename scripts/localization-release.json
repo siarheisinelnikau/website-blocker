@@ -1,8 +1,8 @@
 {
   "product": "WebsiteBlocker",
-  "notes": "docs/localization-release.md",
   "additionalAssets": [
     "WebsiteBlocker-Companion-v{version}.zip"
   ],
-  "checksumName": "checksums.txt"
+  "checksumName": "checksums.txt",
+  "body": "WebsiteBlocker 0.6.0 introduces a cobalt and graphite redesign across the Windows app, browser studio, popup, block page and icons. Green styling has been removed from both light and dark themes.\n\nChanges since v0.4.0:\n- Manage lists, schedules, focus sessions and activity directly in the browser; the desktop companion is optional.\n- Sync browser and desktop state with revision checks and explicit conflict resolution, preserving locked sessions.\n- Put focus controls before decoration and move statistics below the browser workspace. Refresh the typography, tab navigation and control surfaces.\n- Add short, event-triggered focus and connection animations. Browser scenes settle after 2.4 seconds; desktop scenes after 0.85 seconds. Reduced motion is respected and forms no longer fade during transitions.\n- Include matching multi-size cobalt icons and preserve six languages, themes, local settings and in-app update controls.\n\nWindows x64: download WebsiteBlocker-v0.6.0.exe. The companion ZIP includes the unpacked extension; refresh connection files in the desktop and reload the extension after upgrading. Chrome/Edge still require the explicit local-extension installation step. The GPLv3 license and available dependency notices are included.\n\nThe release pipeline runs formatting, Clippy, Rust/JavaScript tests and package/icon/checksum inspection before publishing. New GUI launches and screenshot capture were deferred under the current code-only restriction; repository screenshots show earlier builds. Builds remain unsigned. No full URLs or page contents are stored."
 }

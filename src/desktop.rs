@@ -269,7 +269,7 @@ impl Host {
         }
         let [width, height] = view.size;
         view.bitmap
-            .resize(width as usize * height as usize, [243, 246, 244, 255]);
+            .resize(width as usize * height as usize, [250, 246, 245, 255]);
         let changed = view.last_shapes != output.shapes
             || view.last_pixels_per_point != output.pixels_per_point
             || view.rendered_size != view.size

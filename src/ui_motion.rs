@@ -29,7 +29,7 @@ impl Motion {
         if capture || !self.enabled {
             return 1.0;
         }
-        let t = (self.started.elapsed().as_secs_f32() / 1.25).min(1.0);
+        let t = (self.started.elapsed().as_secs_f32() / 0.85).min(1.0);
         if t < 1.0 {
             ui.ctx().request_repaint_after(Duration::from_millis(33));
         }
@@ -67,20 +67,20 @@ pub fn scene(
     caption: &str,
     replay_label: &str,
 ) -> bool {
-    let (rect, _) = ui.allocate_exact_size(Vec2::new(ui.available_width(), 120.0), Sense::hover());
+    let (rect, _) = ui.allocate_exact_size(Vec2::new(ui.available_width(), 96.0), Sense::hover());
     let p = ui.painter_at(rect);
     let dark = ui.visuals().dark_mode;
     let ink = if dark {
-        Color32::from_rgb(167, 210, 179)
+        Color32::from_rgb(173, 194, 255)
     } else {
-        Color32::from_rgb(36, 86, 62)
+        Color32::from_rgb(54, 92, 206)
     };
     let surface = if dark {
-        Color32::from_rgb(31, 47, 38)
+        Color32::from_rgb(30, 39, 59)
     } else {
-        Color32::from_rgb(232, 238, 219)
+        Color32::from_rgb(235, 240, 253)
     };
-    let gold = Color32::from_rgb(180, 148, 90);
+    let gold = Color32::from_rgb(184, 123, 41);
     p.rect_filled(rect, 14.0, surface);
     let center = rect.center() + Vec2::new(0.0, -5.0);
     let settle = 1.0 - (-7.0 * progress).exp() * (13.0 * progress).cos();
@@ -108,7 +108,7 @@ pub fn scene(
         p.rect_stroke(
             monitor,
             6.0,
-            Stroke::new(1.5, ink),
+            Stroke::new(1.5_f32, ink),
             egui::StrokeKind::Inside,
         );
         p.line_segment(
@@ -116,11 +116,11 @@ pub fn scene(
                 monitor.center_bottom(),
                 monitor.center_bottom() + Vec2::new(0.0, 9.0),
             ],
-            Stroke::new(2.0, ink),
+            Stroke::new(2.0_f32, ink),
         );
         p.line_segment(
             [left + Vec2::new(-14.0, 30.0), left + Vec2::new(14.0, 30.0)],
-            Stroke::new(2.0, ink),
+            Stroke::new(2.0_f32, ink),
         );
         let browser = Rect::from_center_size(
             right + Vec2::new(20.0 * (1.0 - settle), 0.0),
@@ -130,7 +130,7 @@ pub fn scene(
         p.rect_stroke(
             browser,
             7.0,
-            Stroke::new(1.5, ink),
+            Stroke::new(1.5_f32, ink),
             egui::StrokeKind::Inside,
         );
         p.line_segment(
@@ -138,7 +138,7 @@ pub fn scene(
                 browser.left_top() + Vec2::new(0.0, 12.0),
                 browser.right_top() + Vec2::new(0.0, 12.0),
             ],
-            Stroke::new(1.0, ink.gamma_multiply(0.4)),
+            Stroke::new(1.0_f32, ink.gamma_multiply(0.4)),
         );
         for i in 0..3 {
             p.circle_filled(
@@ -150,7 +150,7 @@ pub fn scene(
         p.circle_stroke(
             browser.center() + Vec2::new(0.0, 5.0),
             9.0,
-            Stroke::new(1.5, ink),
+            Stroke::new(1.5_f32, ink),
         );
         let mark = if connected { "✓" } else { "↔" };
         p.circle_filled(center + Vec2::new(0.0, -6.0), 16.0, surface);
@@ -164,7 +164,11 @@ pub fn scene(
     } else {
         for ring in 0..2 {
             let radius = 34.0 + ring as f32 * 12.0 + (1.0 - progress) * 12.0;
-            p.circle_stroke(center, radius, Stroke::new(1.0, ink.gamma_multiply(0.12)));
+            p.circle_stroke(
+                center,
+                radius,
+                Stroke::new(1.0_f32, ink.gamma_multiply(0.12)),
+            );
         }
         let shield_center = center + Vec2::new(0.0, (1.0 - settle) * 18.0);
         let points = [
@@ -181,7 +185,7 @@ pub fn scene(
         p.add(egui::Shape::convex_polygon(
             points,
             ink.gamma_multiply(0.13),
-            Stroke::new(1.6, ink),
+            Stroke::new(1.6_f32, ink),
         ));
         p.add(egui::Shape::line(
             vec![
@@ -189,11 +193,11 @@ pub fn scene(
                 shield_center + Vec2::new(-2.0, 5.0),
                 shield_center + Vec2::new(12.0, -13.0),
             ],
-            Stroke::new(2.7, ink),
+            Stroke::new(2.7_f32, ink),
         ));
         for (i, label) in labels.iter().take(2).enumerate() {
             let label = if label.len() > 20 {
-                format!("{}…", &label[..17])
+                format!("{}…", label.chars().take(17).collect::<String>())
             } else {
                 label.clone()
             };

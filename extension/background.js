@@ -29,7 +29,7 @@ async function apply(state, policy, meta, connection = {}) {
     expiresAt: policy.expires_at, ...connection, mode: meta?.baseRevision != null ? "desktop" : "browser", dirty: !!meta?.dirty, conflict: !!meta?.conflict };
   await api.storage.local.set({ ...(state ? { localState: state, syncMeta: meta } : {}), policy, status });
   await api.action.setBadgeText({ text: active.length ? String(active.length) : "" });
-  await api.action.setBadgeBackgroundColor({ color: "#215c52" });
+  await api.action.setBadgeBackgroundColor({ color: "#365cce" });
   await api.alarms.create("boundary", { when: nextBoundary(policy, now) * 1000 });
   return status;
 }

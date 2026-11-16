@@ -7,11 +7,11 @@ module.exports = async ({ github, context, core }) => {
   const release = JSON.parse(fs.readFileSync(path.join(directory, 'manifest.json'), 'utf8'));
   const subject = context.payload.head_commit?.message.split('\n')[0].replace(/\r$/, '');
   if (context.eventName !== 'push' || context.ref !== 'refs/heads/main' ||
-      subject !== `Release localization v${release.version}` || release.commit !== context.sha ||
+      subject !== `Release WebsiteBlocker v${release.version}` || release.commit !== context.sha ||
       !/^\d+\.\d+\.\d+$/.test(release.version) || release.tag !== `v${release.version}`) {
     throw new Error('The explicit release commit, tag and checked artifacts must match.');
   }
-  const notes = fs.readFileSync(release.notes, 'utf8');
+  const notes = release.notesText;
   if (notes.length < 100 || !notes.includes(release.version)) throw new Error('Missing reviewed notes for this version.');
   const names = new Set();
   for (const asset of release.assets) {

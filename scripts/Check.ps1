@@ -9,7 +9,7 @@ try {
     if ($LASTEXITCODE -ne 0) { throw 'Clippy failed.' }
     cargo test --locked --offline -j 2
     if ($LASTEXITCODE -ne 0) { throw 'Rust tests failed.' }
-    node --test extension/tests/*.test.js
+    node --test extension/tests/*.test.js scripts/publish-localization-release.test.cjs
     if ($LASTEXITCODE -ne 0) { throw 'Extension tests failed.' }
     python scripts/Build-Locales.py --check
     if ($LASTEXITCODE -ne 0) { throw 'Browser catalogs are stale or incomplete.' }

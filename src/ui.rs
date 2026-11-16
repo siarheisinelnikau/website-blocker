@@ -3,7 +3,7 @@ macro_rules! localized {
 }
 
 use chrono::Utc;
-const ACCENT: Color32 = Color32::from_rgb(25, 100, 73);
+const ACCENT: Color32 = Color32::from_rgb(54, 92, 206);
 fn primary(ui: &mut egui::Ui, label: impl Into<String>) -> egui::Response {
     ui.add(
         egui::Button::new(RichText::new(label.into()).color(Color32::WHITE))
@@ -35,37 +35,47 @@ fn apply_theme(ctx: &egui::Context, theme: Theme) {
         Theme::Dark => egui::SystemTheme::Dark,
     }));
     let mut visuals = egui::Visuals::light();
-    visuals.panel_fill = Color32::from_rgb(244, 247, 244);
-    visuals.override_text_color = Some(Color32::from_rgb(28, 54, 45));
-    visuals.faint_bg_color = Color32::from_rgb(235, 241, 236);
+    visuals.panel_fill = Color32::from_rgb(245, 246, 250);
+    visuals.override_text_color = Some(Color32::from_rgb(32, 39, 53));
+    visuals.faint_bg_color = Color32::from_rgb(237, 240, 247);
     visuals.extreme_bg_color = Color32::WHITE;
-    visuals.selection.bg_fill = Color32::from_rgb(201, 229, 214);
-    visuals.widgets.inactive.bg_fill = Color32::from_rgb(230, 237, 232);
-    visuals.widgets.inactive.weak_bg_fill = Color32::from_rgb(230, 237, 232);
-    visuals.widgets.inactive.fg_stroke.color = Color32::from_rgb(28, 54, 45);
-    visuals.widgets.hovered.bg_fill = Color32::from_rgb(211, 229, 217);
-    visuals.widgets.active.bg_fill = Color32::from_rgb(189, 216, 200);
+    visuals.selection.bg_fill = Color32::from_rgb(214, 225, 255);
+    visuals.widgets.inactive.bg_fill = Color32::from_rgb(235, 239, 247);
+    visuals.widgets.inactive.weak_bg_fill = Color32::from_rgb(235, 239, 247);
+    visuals.widgets.inactive.fg_stroke.color = Color32::from_rgb(32, 39, 53);
+    visuals.widgets.hovered.bg_fill = Color32::from_rgb(221, 229, 249);
+    visuals.widgets.active.bg_fill = Color32::from_rgb(203, 216, 250);
     if theme == Theme::Dark {
         visuals = egui::Visuals::dark();
-        visuals.panel_fill = Color32::from_rgb(23, 32, 29);
-        visuals.window_fill = Color32::from_rgb(30, 43, 37);
-        visuals.override_text_color = Some(Color32::from_rgb(225, 238, 229));
-        visuals.faint_bg_color = Color32::from_rgb(35, 49, 41);
-        visuals.extreme_bg_color = Color32::from_rgb(17, 25, 21);
-        visuals.selection.bg_fill = Color32::from_rgb(46, 100, 76);
+        visuals.panel_fill = Color32::from_rgb(19, 23, 32);
+        visuals.window_fill = Color32::from_rgb(27, 33, 48);
+        visuals.override_text_color = Some(Color32::from_rgb(232, 236, 244));
+        visuals.faint_bg_color = Color32::from_rgb(36, 45, 64);
+        visuals.extreme_bg_color = Color32::from_rgb(14, 18, 27);
+        visuals.selection.bg_fill = Color32::from_rgb(52, 75, 130);
         visuals.selection.stroke.color = Color32::WHITE;
-        visuals.widgets.inactive.bg_fill = Color32::from_rgb(43, 58, 49);
-        visuals.widgets.inactive.weak_bg_fill = Color32::from_rgb(38, 53, 45);
-        visuals.widgets.inactive.fg_stroke.color = Color32::from_rgb(225, 238, 229);
-        visuals.widgets.hovered.bg_fill = Color32::from_rgb(55, 79, 64);
-        visuals.widgets.active.bg_fill = Color32::from_rgb(64, 98, 78);
+        visuals.widgets.inactive.bg_fill = Color32::from_rgb(39, 49, 69);
+        visuals.widgets.inactive.weak_bg_fill = Color32::from_rgb(33, 43, 63);
+        visuals.widgets.inactive.fg_stroke.color = Color32::from_rgb(232, 236, 244);
+        visuals.widgets.hovered.bg_fill = Color32::from_rgb(49, 64, 94);
+        visuals.widgets.active.bg_fill = Color32::from_rgb(61, 80, 120);
     }
+    visuals.hyperlink_color = if theme == Theme::Dark {
+        Color32::from_rgb(156, 181, 255)
+    } else {
+        ACCENT
+    };
+    visuals.selection.stroke.color = if theme == Theme::Dark {
+        Color32::WHITE
+    } else {
+        Color32::from_rgb(32, 39, 53)
+    };
     ctx.set_visuals(visuals);
 }
 
 fn accent(ui: &egui::Ui) -> Color32 {
     if ui.visuals().dark_mode {
-        Color32::from_rgb(132, 208, 167)
+        Color32::from_rgb(156, 181, 255)
     } else {
         ACCENT
     }
@@ -1206,6 +1216,37 @@ impl App {
                 Instant::now() + Duration::from_secs(if waiting { 1 } else { 30 });
         }
     }
+    fn draw_scene(&mut self, ui: &mut egui::Ui, progress: f32, l: Language) {
+        let labels = self
+            .state
+            .groups
+            .iter()
+            .flat_map(|g| &g.patterns)
+            .take(2)
+            .map(|p| p.domain.clone())
+            .collect::<Vec<_>>();
+        let replay = crate::ui_motion::scene(
+            ui,
+            progress,
+            self.tab == Tab::Browser,
+            self.setup.connected(),
+            &labels,
+            l.t(if self.tab == Tab::Browser {
+                if self.setup.connected() {
+                    "Connected. Changes travel both ways."
+                } else {
+                    "Chrome works on its own. Connect to sync."
+                }
+            } else {
+                "Less distraction. More intention."
+            }),
+            l.t("Replay animation"),
+        );
+        if replay {
+            self.motion.replay(ui.ctx());
+        }
+    }
+
     pub fn render(&mut self, ctx: &egui::Context) {
         self.receive(ctx);
         let l = self.state.language;
@@ -1266,9 +1307,8 @@ impl App {
                 egui::ScrollArea::vertical().show(ui, |ui| {
                     ui.set_max_width(ui.available_width().min(790.0));
                     let key = format!(
-                        "{:?}-{}-{}-{}-{}-{}-{}",
+                        "{:?}-{}-{}-{}-{}-{}",
                         self.tab,
-                        self.state.revision,
                         self.setup.chrome.connected,
                         self.setup.edge.connected,
                         self.setup.chrome.prepared,
@@ -1280,44 +1320,19 @@ impl App {
                         key,
                         std::env::var_os("WEBSITEBLOCKER_CAPTURE").is_some(),
                     );
-                    if matches!(self.tab, Tab::Focus | Tab::Browser) {
-                        let labels = self
-                            .state
-                            .groups
-                            .iter()
-                            .flat_map(|g| &g.patterns)
-                            .take(2)
-                            .map(|p| p.domain.clone())
-                            .collect::<Vec<_>>();
-                        let replay = crate::ui_motion::scene(
-                            ui,
-                            progress,
-                            self.tab == Tab::Browser,
-                            self.setup.connected(),
-                            &labels,
-                            l.t(if self.tab == Tab::Browser {
-                                if self.setup.connected() {
-                                    "Connected. Changes travel both ways."
-                                } else {
-                                    "Chrome works on its own. Connect to sync."
-                                }
-                            } else {
-                                "Less distraction. More intention."
-                            }),
-                            l.t("Replay animation"),
-                        );
-                        if replay {
-                            self.motion.replay(ui.ctx());
-                        }
+                    if self.tab == Tab::Browser {
+                        self.draw_scene(ui, progress, l);
                     }
-                    ui.set_opacity((progress * 3.5).min(1.0));
-                    ui.add_space(7.0 * (1.0 - (progress * 3.5).min(1.0)));
                     ui.add_enabled_ui(self.ready && !self.busy, |ui| match self.tab {
                         Tab::Focus => self.focus(ui),
                         Tab::Rules => self.rules(ui),
                         Tab::Settings => self.settings(ui),
                         Tab::Browser => self.browser_setup(ui),
                     });
+                    if self.tab == Tab::Focus {
+                        ui.add_space(12.0);
+                        self.draw_scene(ui, progress, l);
+                    }
                 });
             });
     }

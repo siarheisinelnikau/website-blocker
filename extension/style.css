@@ -1,4 +1,4 @@
-:root { color-scheme: light; font-family: system-ui, sans-serif; color: #153c36; background: #f1f3eb; }
+:root { color-scheme: light; font-family: system-ui, sans-serif; color: #151e3c; background: #f5f6fa; }
 * { box-sizing: border-box; }
 body { margin: 0; }
 main { padding: 28px; }
@@ -8,15 +8,15 @@ main { padding: 28px; }
 h1 { font-size: 30px; line-height: 1.14; font-weight: 650; letter-spacing: -.04em; }
 .blocked h1 { font-size: 54px; }
 p, details { font-size: 14px; line-height: 1.65; }
-.muted { color: #5b6f66; font-size: 12px; }
+.muted { color: #5b5f6f; font-size: 12px; }
 #error { color: #8a3627; overflow-wrap: anywhere; }
-button { background: #215c52; color: white; border: none; padding: 12px 18px; border-radius: 8px; cursor: pointer; font: inherit; }
-button:hover { background: #153c36; } button:disabled { opacity: .5; }
+button { background: #365cce; color: white; border: none; padding: 12px 18px; border-radius: 8px; cursor: pointer; font: inherit; }
+button:hover { background: #151e3c; } button:disabled { opacity: .5; }
 button:focus-visible, summary:focus-visible { outline: 3px solid #b5a340; outline-offset: 3px; }
 .symbol { font-size: 80px; margin-top: 30px; color: #a29b46; }
-:root[data-theme="dark"] { color-scheme: dark; color: #e1eee5; background: #17201d; }
-:root[data-theme="dark"] .muted { color: #b1c4b7; }
+:root[data-theme="dark"] { color-scheme: dark; color: #e1e4ee; background: #171920; }
+:root[data-theme="dark"] .muted { color: #b1b5c4; }
 :root[data-theme="dark"] #error { color: #ff9789; }
-:root[data-theme="dark"] button { background: #317459; color: #fff; }
-:root[data-theme="dark"] button:hover { background: #3d8c6b; }
+:root[data-theme="dark"] button { background: #314074; color: #ffffff; }
+:root[data-theme="dark"] button:hover { background: #3d4e8c; }
 button { white-space: normal; overflow-wrap: anywhere; }
