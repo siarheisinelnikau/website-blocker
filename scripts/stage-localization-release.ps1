@@ -7,14 +7,13 @@ Set-Location -LiteralPath $repository
 $configuration = Get-Content -LiteralPath 'scripts/localization-release.json' -Raw | ConvertFrom-Json
 $version = [regex]::Match((Get-Content -LiteralPath 'Cargo.toml' -Raw), '(?m)^version\s*=\s*"(\d+\.\d+\.\d+)"\s*$').Groups[1].Value
 if (-not $version) { throw 'Expected a stable Cargo package version.' }
-$expectedSubject = "Release localization v$version"
+$expectedSubject = "Release WebsiteBlocker v$version"
 $event = Get-Content -LiteralPath $env:GITHUB_EVENT_PATH -Raw | ConvertFrom-Json
 $subject = ($event.head_commit.message -split "`n")[0].TrimEnd("`r")
 if ($env:GITHUB_EVENT_NAME -ne 'push' -or $env:GITHUB_REF -ne 'refs/heads/main' -or $subject -cne $expectedSubject) {
     throw "Publication requires an explicit main-push commit subject: $expectedSubject"
 }
-$notesPath = Join-Path $repository $configuration.notes
-$notes = Get-Content -LiteralPath $notesPath -Raw -Encoding utf8
+$notes = $configuration.body
 if ($notes.Length -lt 100 -or -not $notes.Contains($version)) { throw 'Release notes must describe this version in readable English.' }
 $inputRoot = (Resolve-Path -LiteralPath $InputDirectory).Path
 $outputRoot = [IO.Path]::GetFullPath((Join-Path $repository $OutputDirectory))
@@ -90,6 +89,6 @@ if ($checksumName -cne 'SHA256SUMS.txt') {
     }
     $manifest += [ordered]@{name=$checksumName; size=(Get-Item -LiteralPath $compatibilityPath).Length; digest=('sha256:' + (Get-FileHash -LiteralPath $compatibilityPath -Algorithm SHA256).Hash.ToLowerInvariant())}
 }
-$release = [ordered]@{version=$version; tag="v$version"; product=$configuration.product; commit=$env:GITHUB_SHA; notes=$configuration.notes; assets=@($manifest)}
+$release = [ordered]@{version=$version; tag="v$version"; product=$configuration.product; commit=$env:GITHUB_SHA; notesText=$notes; assets=@($manifest)}
 [IO.File]::WriteAllText((Join-Path $outputRoot 'manifest.json'), ($release | ConvertTo-Json -Depth 6), [Text.UTF8Encoding]::new($false))
 Write-Output "Staged $($manifest.Count) checked release assets for v$version."

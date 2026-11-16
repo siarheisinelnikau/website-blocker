@@ -34,9 +34,9 @@ jobs:
           path: dist/*
 
   localization-release:
-    name: Publish the explicitly requested localization release
+    name: Publish the explicitly requested application release
     needs: windows
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && startsWith(github.event.head_commit.message, 'Release localization v')
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && startsWith(github.event.head_commit.message, 'Release WebsiteBlocker v')
     runs-on: windows-latest
     timeout-minutes: 10
     permissions:
